@@ -27,5 +27,7 @@ I will write something here when I bring the project to a more or less effective
 
 ## Acknowledgements
 
-* [Information that helped me](https://awgsfoundry.com/blog-entry-549.html)
+* [Dishonored font replace (JP)](https://awgsfoundry.com/blog-entry-549.html)
+* [UPK File Format - Nexusmods wiki](https://wiki.nexusmods.com/index.php/UPK_File_Format_-_XCOM:EU_2012)
+* [UPK File Format - Nexusmods forum](https://forums.nexusmods.com/index.php?/topic/1254328-upk-file-format/)
 

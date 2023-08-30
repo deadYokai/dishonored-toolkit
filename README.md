@@ -1,3 +1,5 @@
+![Forks](https://img.shields.io/github/forks/deadYokai/dishonored-toolkit?style=social) ![Stargazers](https://img.shields.io/github/stars/deadYokai/dishonored-toolkit?style=social)
+
 <br/>
 <p align="center">
   <h3 align="center">Dishonored Mod Toolkit</h3>
@@ -9,7 +11,6 @@
   </p>
 </p>
 
-![Forks](https://img.shields.io/github/forks/deadYokai/dishonored-toolkit?style=social) ![Stargazers](https://img.shields.io/github/stars/deadYokai/dishonored-toolkit?style=social)
 
 ## About The Project
 
@@ -21,7 +22,15 @@ But there was another problem - subtitles. And to replace the subtitles, I had t
 
 Therefore, I am posting this project here in the hope that it will be useful to someone.
 
+## Used Libs (Pypi)
+
+* [configparser](https://pypi.org/project/configparser/)
+* [PyYAML](https://pypi.org/project/PyYAML/)
+* [cchardet](https://pypi.org/project/cchardet/)
+
 ## Usage
+
+- Before working through these tools, you need to decompress them.  [Unreal Package Decomressor](https://www.gildor.org/downloads)
 
 I will write something here when I bring the project to a more or less effective state
 

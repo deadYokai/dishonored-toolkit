@@ -30,7 +30,7 @@ Therefore, I am posting this project here in the hope that it will be useful to 
 
 ## Usage
 
-- Before working through these tools, you need to decompress them.  [Unreal Package Decomressor](https://www.gildor.org/downloads)
+- Before working through these tools, you need to decompress a upk files.  [Unreal Package Decomressor](https://www.gildor.org/downloads)
 
 I will write something here when I bring the project to a more or less effective state
 

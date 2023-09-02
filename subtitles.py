@@ -3,12 +3,14 @@ from pathlib import Path
 from binary import BinaryStream
 import yaml
 import struct
+import math
 
 outputYaml = "en.yaml"
-files = Path("../_DYextracted").glob('DisConv_Blurb_*')
+files = Path("_DYextracted").glob('DisConv_Blurb.*')
 output_dict = dict()
 
-numv = 2
+patch = False
+
 def strFinder():
         off = reader.offset()
         ls = reader.readInt32()
@@ -30,6 +32,7 @@ def strFinder():
 
         return [off, ls, reader.readString(ls), is2b]
 
+
 for fileToExtract in files:
         fileSize = os.stat(fileToExtract).st_size
         name = Path(fileToExtract).stem
@@ -48,12 +51,18 @@ for fileToExtract in files:
         stringLen = reader.readInt32()
 
         origText = reader.readBytes(stringLen)
+
         skip = False
         try:
                 output_dict[name] = origText.decode("utf-8").replace("\x00", "")
         except UnicodeDecodeError:
                 skip = True # skip \x88
                 output_dict[name] = str(origText)
+
+        if output_dict[name] == "Follow me Corvo!":
+                patch = True
+        else:
+                patch = False
 
         if not skip:
                 while True:
@@ -122,8 +131,31 @@ for fileToExtract in files:
 
                         try:
                                 a = arr[-1][2]
-                                print(fileToExtract)
-                                print(a)
+                                if patch:
+                                        print(fileToExtract)
+                                        print(a)
+                                        print(len(a))
+                                        rstr = "Сюди, Корво!".encode("utf-16")[2:]
+                                        print(arr[-1][0])
+                                        rlen = math.ceil(len(rstr)/2) * -1
+                                        print(len(rstr)/2)
+                                        reader.seek(0)
+                                        startdata = reader.readBytes(arr[-1][0])
+                                        reader.seek(arr[-1][0] + arr[-1][1] + 4)
+                                        otherdata = reader.readBytes(fileSize - reader.offset())
+                                        path = str(fileToExtract).replace("_DYextracted", "_DYpatched") + "_patched"
+
+                                        if not os.path.isdir("_DYpatched"):
+                                                os.mkdir("_DYpatched")
+
+                                        with open(path, "wb") as patched:
+                                                ps = BinaryStream(patched)
+                                                ps.writeBytes(startdata)
+                                                ps.writeInt32(rlen)
+                                                ps.writeBytes(rstr)
+                                                ps.writeBytes(otherdata)
+                                        # r.writeInt32(rlen)
+                                        # r.writeBytes(rstr)
                         except IndexError:
                                 a = ""
                                 # print(fileToExtract)
@@ -136,7 +168,7 @@ for fileToExtract in files:
 # write original strings to loc file
 #
 # with open(outputYaml, "w") as yaml_file:
-#     yaml.dump(output_dict, yaml_file)
+    # yaml.dump(output_dict, yaml_file)
 
 
 

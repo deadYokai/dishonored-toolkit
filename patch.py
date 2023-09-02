@@ -1,11 +1,13 @@
 import os
 
+from pathlib import Path
+
 from binary import BinaryStream
 
 # set signature of UPK
 sign_upk = int.from_bytes(bytes([158, 42, 131, 193]))
 
-fileToExtract = "L_Tower_Script.upk"
+fileToExtract = "../L_Tower_Script.upk"
 outDir = "_DYextracted"
 
 # open file and create stream
@@ -64,7 +66,8 @@ reader.seek(nameOffset)
 names = []
 for i in range(nameCount):
     nameLen = reader.readInt32()
-    names.append(reader.readBytes(nameLen)) # .decode('utf-8').replace('\x00','')
+    q = reader.readBytes(nameLen)
+    names.append(q)
 
     # UNKNOWN DATA
     reader.readInt32()
@@ -141,9 +144,9 @@ for e in exports:
     if _objType == -1:
         _e = ".Package"
     if _objType == -2:
-        _e = ".Font"
-    if _objType == -3:
         _e = ".ObjectReferencer"
+    if _objType == -3:
+        _e = ".SwfMovie"
     if _objType == -4:
         _e = ".Texture2D"
 
@@ -158,88 +161,53 @@ for e in exports:
     }
     data.append(_object)
 
-
-
-
-
-
-# check if exists folder
-if not os.path.isdir(outDir):
-    os.mkdir(outDir)
-
-# extract header
-reader.seek(0)
-with open(f"{outDir}/_header", "wb") as headerFile:
-    headerFile.write(reader.readBytes(headerSize))
-
-# # extract objects
-
 dataOff = 0
 dataSize = 0
 
-# obji = list(x.keys()).index("Emerge_BF.Font")
-obj = data[4]
-objFileName = obj["FileName"]
-objSize = obj["Size"]
-objOffset = obj["Offset"]
+files = Path("_DYpatched").glob('*.*_patched')
 
-dataOff = objOffset
-# with open("tmp2part", "wb") as f:
-#     fileSize = os.stat(fileToExtract).st_size
-#     reader.seek(objOffset + objSize)
-#     f.write(reader.readBytes(fileSize - reader.offset()))
-
-iSize = os.stat("insert").st_size
-
-dataSize = iSize - objSize
-# print(dataSize)
-# with open("insert", "rb") as f:
-#     reader.seek(objOffset)
-#     reader.writeBytes(f.read())
-#
-# with open("tmp2part", "rb") as f:
-#     reader.writeBytes(f.read())
-
-reader.seek(obj["SizeOff"])
-reader.writeInt32(iSize)
-
-num = 0
-founded = []
-for obj in data:
-    objFileName = obj["FileName"].decode("utf-8").replace('\x00','')
+for file in files:
+    oid = int(str(file).split(".")[1].split("_")[0])
+    obj = data[oid]
+    objFileName = obj["FileName"].decode('utf-8').replace('\x00','')
     objSize = obj["Size"]
     objOffset = obj["Offset"]
-#
-    # if dataOff < objOffset:
-        # reader.seek(obj["DataOff"])
-        # reader.writeInt32(objOffset + dataSize)
-#
-    # print(dataSize)
-#
 
-    if objFileName.find("Blurb") != -1:
+    dataOff = objOffset
+    with open("tmp2part", "wb") as f:
+        fileSize = os.stat(fileToExtract).st_size
+        reader.seek(objOffset + objSize)
+        f.write(reader.readBytes(fileSize - reader.offset()))
 
-        founded.append(objFileName)
+    iSize = os.stat(file).st_size
 
-        if objFileName in founded:
-            objFileName += f"_{num}"
-            num += 1
+    dataSize = iSize - objSize
+    print(dataSize)
+    with open(str(fileToExtract) + "_patched", "wb") as pf:
+        pr = BinaryStream(pf)
+        reader.seek(0)
+        pr.writeBytes(reader.readBytes(objOffset))
 
-        p = f"{outDir}/{objFileName}"
+        with open(file, "rb") as f:
+            reader.writeBytes(f.read())
+
+        with open("tmp2part", "rb") as f:
+            reader.writeBytes(f.read())
+
+        pr.seek(obj["SizeOff"])
+        pr.writeInt32(iSize)
+
+        for obj in data:
+            objFileName = obj["FileName"]
+            objSize = obj["Size"]
+            objOffset = obj["Offset"]
+
+
+            if dataOff < objOffset:
+                pr.seek(obj["DataOff"])
+                pr.writeInt32(objOffset + dataSize)
 
         print(f"- {objFileName}\n  size: {objSize}\n  offset: {objOffset}")
-
-        reader.seek(objOffset)
-        fileBytes = reader.readBytes(objSize)
-
-
-        with open(f"{outDir}/_objects.txt", "a") as objFile:
-            objFile.write(f"{objFileName}; {objSize}; {objOffset}\n")
-
-        with open(p, "wb") as objFile:
-            objFile.write(fileBytes)
-
-
 
 
 

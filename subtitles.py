@@ -2,28 +2,26 @@ import os
 from pathlib import Path
 from binary import BinaryStream
 import yaml
+import struct
 
 outputYaml = "en.yaml"
-files = Path("_DYextracted").glob('DisConv_Blurb_*')
+files = Path("../_DYextracted").glob('DisConv_Blurb_*')
 output_dict = dict()
 
 
-def strFinder(first, e6):
-        global numv
-        numv += 1
-        if e6:
-                if not first:
-                        reader.readInt32()
-                        reader.readInt32()
-        first = False
-        if not e6:
-                if numv == 3:
-                        reader.readInt32()
-                        reader.readInt32()
-                        numv = 0
+numv = 2
+def strFinder():
         ls = reader.readInt32()
+        while ls == 0:
+                h = reader.offset()
+                ls = reader.readInt32()
+        if ls > 1000:
+                reader.readInt32()
+                ls = reader.readInt32()
+
         if ls < 0:
-                ls = abs(ls) * 2
+                ls = (abs(ls) * 2)
+
         return reader.readString(ls)
 
 for fileToExtract in files:
@@ -55,19 +53,42 @@ for fileToExtract in files:
                 output_dict[name] = str(origText)
 
         print(fileToExtract)
-        # print(off)
-        # while reader.readByte() == b"\x0d":
-                # print(13)
 
-        if e6:
-                first = True
-                numv = 2
-                reader.readBytes(40) # from 3A20 or 3B20
-                lnum = reader.readInt32()
-                for i in range(lnum):
-                        print(strFinder(first, e6).decode("utf-16"))
-                        first = False
-                break;
+        # if e6:
+        reader.readBytes(28)
+
+        pointer = reader.readInt32()
+        reader.readInt32()
+
+        if pointer == 0:
+                reader.readInt32()
+                pointer = reader.readInt32()
+                reader.readInt32()
+
+        if pointer != 5264:
+                reader.readBytes(128)
+
+        reader.readBytes(56)
+
+        print(reader.offset())
+        lnum = reader.readInt32()
+
+        reader.readInt32()
+
+        print(lnum)
+
+        i = 0 # ???
+
+        while True:
+                try:
+                        out = strFinder()
+                        print(out)
+                        i += 1
+                        if out == b"!!!! LOCALIZATION MISSING !!!!\x00":
+                                i -= 1
+                except struct.error:
+                        break;
+        # break;
 
 #
 # with open(outputYaml, "w") as yaml_file:

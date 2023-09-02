@@ -30,9 +30,35 @@ Therefore, I am posting this project here in the hope that it will be useful to 
 
 ## Usage
 
-- Before working through these tools, you need to decompress a upk files.  [Unreal Package Decomressor](https://www.gildor.org/downloads)
+**WARNING:** Before working through these tools, you need to decompress a upk files.  [Unreal Package Decomressor](https://www.gildor.org/downloads)
 
-I will write something here when I bring the project to a more or less effective state
+#### File Structure:
+
+**_DYextracted:** `ObjectName.ObjectId`
+
+**_DYpatched:** `ObjectName.ObjectId_patched`
+
+**_objects.txt:** `ObjectName.ObjectId; ObjectSize; ObjectOffset`
+
+#### Unpack
+
+```bash
+python3 unpack.py -f <filter> upkfile
+```
+
+Example: `python3 unpack.py -f Blurb ../L_Tower_Script.upk`
+
+#### Patch
+
+```bash
+python3 patch.py upkfile
+```
+
+Example: `python3 patch.py ../L_Tower_Script.upk`
+
+#### ___
+
+I will write something more here
 
 ## Acknowledgements
 

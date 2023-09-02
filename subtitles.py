@@ -58,13 +58,16 @@ for fileToExtract in files:
                 # print(origText)
                 output_dict[name] = str(origText)
 
-        pointerOff1 = reader.offset()
+        pointerOff1 = reader.offset().to_bytes(2, "big")
 
         pointer = reader.readInt32()
         fPoint  = pointer
-        if pointer != 5264:
+
+        if pointer != 5264 and pointer != 5132:
                 reader.readBytes(24)
+                pointerOff1 = reader.offset().to_bytes(2, "big")
                 pointer = reader.readInt32()
+
         reader.readInt32()
 
         if pointer == 0:
@@ -72,13 +75,27 @@ for fileToExtract in files:
                 pointer = reader.readInt32()
                 reader.readInt32()
 
+        if pointer != 5264 and pointer != 5132:
+                reader.readBytes(36)
+
         if pointer != 5264:
-                reader.readBytes(128)
+                reader.readBytes(92)
 
         reader.readBytes(56)
 
-        numOff = reader.offset()
+        numOff = reader.offset().to_bytes(2, "big")
         lnum = reader.readInt32()
+
+        if lnum > 1000:
+                while True:
+                        lnum = reader.readInt32()
+                        if lnum > 0 and lnum < 1000 and lnum != 0:
+                                print(fileToExtract)
+                                print("---")
+                                print(reader.offset().to_bytes(2, "big"))
+                                print(lnum)
+                                print("----")
+                                break;
 
         reader.readInt32()
 

@@ -40,9 +40,7 @@ for fileToExtract in files:
 
         types = reader.readByte()
 
-        e6 = False
         if types == b"\xe6":
-                e6 = True
                 reader.seek(154)
         else:
                 reader.seek(179)
@@ -50,88 +48,89 @@ for fileToExtract in files:
         stringLen = reader.readInt32()
 
         origText = reader.readBytes(stringLen)
-
+        skip = False
         try:
                 output_dict[name] = origText.decode("utf-8").replace("\x00", "")
         except UnicodeDecodeError:
-                # print(fileToExtract)
-                # print(origText)
+                skip = True # skip \x88
                 output_dict[name] = str(origText)
 
-        pointerOff1 = reader.offset().to_bytes(2, "big")
-
-        pointer = reader.readInt32()
-        fPoint  = pointer
-
-        if pointer != 5264 and pointer != 5132:
-                reader.readBytes(24)
-                pointerOff1 = reader.offset().to_bytes(2, "big")
-                pointer = reader.readInt32()
-
-        reader.readInt32()
-
-        if pointer == 0:
-                reader.readInt32()
-                pointer = reader.readInt32()
-                reader.readInt32()
-
-        if pointer != 5264 and pointer != 5132:
-                reader.readBytes(36)
-
-        if pointer != 5264:
-                reader.readBytes(92)
-
-        reader.readBytes(56)
-
-        numOff = reader.offset().to_bytes(2, "big")
-        lnum = reader.readInt32()
-
-        if lnum > 1000:
+        if not skip:
                 while True:
-                        lnum = reader.readInt32()
-                        if lnum > 0 and lnum < 1000 and lnum != 0:
+                        try:
+                                pointerOff1 = reader.offset().to_bytes(2, "big")
+                                pointer = reader.readInt32()
+                                if pointer == 1347584:
+                                        pointerOff1 = reader.offset().to_bytes(2, "big")
+                                        reader.seek(reader.offset() - 3)
+                                        pointer = reader.readInt32()
+                                if pointer == 1347653:
+                                        pointerOff1 = reader.offset().to_bytes(2, "big")
+                                        reader.seek(reader.offset() - 3)
+                                        pointer = reader.readInt32()
+                        except struct.error:
                                 print(fileToExtract)
-                                print("---")
-                                print(reader.offset().to_bytes(2, "big"))
-                                print(lnum)
-                                print("----")
                                 break;
+                        if pointer == 5264 or pointer == 5132:
+                                reader.readInt32()
+                                break
 
-        reader.readInt32()
+                if pointer != 5264:
+                        reader.readBytes(92)
 
-        i = 0 # ???
+                reader.readBytes(56)
 
-        arr = []
+                fPoint  = pointer
+                numOff = reader.offset().to_bytes(2, "big")
+                lnum = reader.readInt32()
 
-        while True:
-                try:
-                        out = strFinder()
-                        i += 1
-                        if out[2] == b"!!!! LOCALIZATION MISSING !!!!\x00":
-                                i -= 1
-                        elif out[2].startswith(b'LOC MISSING'):
-                                i -= 1
-                        else:
-                                arr.append(out)
-                except struct.error:
-                        # print("END")
-                        break;
+                if lnum > 1000:
+                        while True:
+                                lnum = reader.readInt32()
+                                if lnum > 0 and lnum < 1000 and lnum != 0:
+                                        break;
 
-        # just for debugging
-        # break;
+                # check if this has a translations
+                if lnum != 0:
+                        try:
+                                reader.readInt32()
+                        except:
+                                pass
+                        i = 0 # ???
 
-        # get last, because it's easier
-        # and get broken
+                        arr = []
 
-        try:
-                a = arr[-1][2]
-        except IndexError:
-                a = ""
-                print(fileToExtract)
-                print(pointerOff1)
-                print(fPoint)
-                print(numOff)
-                print(lnum)
+                        while True:
+                                try:
+                                        out = strFinder()
+                                        i += 1
+                                        if out[2] == b"!!!! LOCALIZATION MISSING !!!!\x00":
+                                                i -= 1
+                                        elif out[2].startswith(b'LOC MISSING'):
+                                                i -= 1
+                                        else:
+                                                arr.append(out)
+                                except struct.error:
+                                        # print("END")
+                                        break;
+
+                        # just for debugging
+                        # break;
+
+                        # get last, because it's easier
+                        # and get broken
+
+                        try:
+                                a = arr[-1][2]
+                                print(fileToExtract)
+                                print(a)
+                        except IndexError:
+                                a = ""
+                                # print(fileToExtract)
+                                # print(pointerOff1)
+                                # print(fPoint)
+                                # print(numOff)
+                                # print(lnum)
 
 #
 # write original strings to loc file

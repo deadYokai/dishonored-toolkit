@@ -56,6 +56,8 @@ python3 patch.py upkfile
 
 Example: `python3 patch.py ../L_Tower_Script.upk`
 
+**Notice:** files `_header` and `_objects.txt` not uses in patcher
+
 #### ___
 
 I will write something more here

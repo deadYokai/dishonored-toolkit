@@ -196,6 +196,8 @@ def patch():
                 reader.seek(0)
                 pr.writeBytes(reader.readBytes(headerSize))
 
+            offsetDiff = 0
+            sizeDiff = 0
             with open(f"{outDir}/_objects.txt", "r") as listfile:
                 for line in listfile:
                     odata = line.replace(' ', '').replace('\n','').split(";")
@@ -205,32 +207,40 @@ def patch():
                     headerOff = int(odata[3])
                     offset = int(odata[4])
 
-                    offsetDiff = 0
-                    sizeDiff = 0
+                    b = False
                     if name in patchedFiles:
                         psize = os.stat(f"_DYpatched/{name}_patched").st_size
                         with open(f"_DYpatched/{name}_patched", "rb") as f:
+                            sizeDiff = psize - size
                             offsetDiff = offsetDiff + sizeDiff
-                            sizeDiff = size + psize
                             writeData = f.read()
-                        if a:
-                            a = False
-                            print("Patched Objects:")
-                        offe = pr.offset()
-                        print(f"- {name}\n  size diff: {sizeDiff}\n  offset: {offe}")
+                            b = True
                     else:
                         sizeDiff = 0
                         reader.seek(offset)
                         writeData = reader.readBytes(size)
 
-                    pr.seek(offset)
+                    if a and b:
+                        a = False
+                        print("Patched Objects:")
+                        oDiff = 0
+                    else:
+                        oDiff = offsetDiff
+
+
+                    offe = offset + oDiff
+
+                    if b:
+                        print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
+
+                    pr.seek(offe)
                     pr.writeBytes(writeData)
 
                     pr.seek(sizeOff)
                     pr.writeInt32(size + sizeDiff)
 
                     pr.seek(headerOff)
-                    pr.writeInt32(offset + offsetDiff)
+                    pr.writeInt32(offe)
 
 
 

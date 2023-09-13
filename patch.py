@@ -138,7 +138,6 @@ def patch():
     print(f"Cooker version: {cookerVer}")
 
     data = []
-    print(f"Objects:")
 
     # just for print and format to data list
     for e in exports:
@@ -168,6 +167,9 @@ def patch():
             "SizeOff": _objSizeOff,
             "DataOff": _objOffOff,
         }
+
+        index = f"{filename}.{_objOffset}"
+
         data.append(_object)
 
     dataOff = 0
@@ -175,49 +177,67 @@ def patch():
 
     files = Path("_DYpatched").glob('*.*_patched')
 
+    patchedFiles = []
+
     for pfile in files:
         oid = int(str(pfile).split(".")[1].split("_")[0])
-        obj = data[oid]
-        objFileName = obj["FileName"].decode('utf-8').replace('\x00','')
-        print(objFileName)
-        objSize = obj["Size"]
-        objOffset = obj["Offset"]
+        oname = str(pfile.stem)
+        patchedFiles.append(f"{oname}.{oid}")
 
-        if objFileName != str(pfile.stem):
-            raise Exception("Wrong filename")
-
-        dataOff = objOffset
-        fileSize = os.stat(args.filename).st_size
-
-        reader.seek(0)
-        dataBefore = reader.readBytes(objOffset)
-        reader.seek(objOffset + objSize)
-        dataAfter = reader.readBytes(fileSize - reader.offset())
-
-        iSize = os.stat(pfile).st_size
-
-        dataSize = iSize - objSize
-        print(dataSize)
-        with open(str(args.filename) + "_patched", "wb") as pf:
+    a = True
+    with open(str(args.filename) + "_patched", "wb") as pf:
             pr = BinaryStream(pf)
-            pr.writeBytes(dataBefore)
 
-            with open(pfile, "rb") as f:
-                pr.writeBytes(f.read())
+            pr.seek(0)
+            if args.patch_header:
+                with open(f"{outDir}/_header", "rb") as head:
+                    pr.writeBytes(head.read())
+            else:
+                reader.seek(0)
+                pr.writeBytes(reader.readBytes(headerSize))
 
-            pr.writeBytes(dataAfter)
+            with open(f"{outDir}/_objects.txt", "r") as listfile:
+                for line in listfile:
+                    odata = line.replace(' ', '').replace('\n','').split(";")
+                    name = odata[0]
+                    sizeOff = int(odata[1])
+                    size = int(odata[2])
+                    headerOff = int(odata[3])
+                    offset = int(odata[4])
 
-            pr.seek(obj["SizeOff"])
-            pr.writeInt32(iSize)
-            pr.seek(obj["DataOff"])
-            print(objOffset + dataSize)
-            pr.writeInt32(objOffset + dataSize)
+                    offsetDiff = 0
+                    sizeDiff = 0
+                    if name in patchedFiles:
+                        psize = os.stat(f"_DYpatched/{name}_patched").st_size
+                        with open(f"_DYpatched/{name}_patched", "rb") as f:
+                            offsetDiff = offsetDiff + sizeDiff
+                            sizeDiff = size + psize
+                            writeData = f.read()
+                        if a:
+                            a = False
+                            print("Patched Objects:")
+                        offe = pr.offset()
+                        print(f"- {name}\n  size diff: {sizeDiff}\n  offset: {offe}")
+                    else:
+                        sizeDiff = 0
+                        reader.seek(offset)
+                        writeData = reader.readBytes(size)
 
-            print(f"- {objFileName}\n  size: {objSize}\n  offset: {objOffset}")
+                    pr.seek(offset)
+                    pr.writeBytes(writeData)
+
+                    pr.seek(sizeOff)
+                    pr.writeInt32(size + sizeDiff)
+
+                    pr.seek(headerOff)
+                    pr.writeInt32(offset + offsetDiff)
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = 'UPK Patcher (Dishonored), uses files from folder "_DYpatched"', epilog = 'Work in progress')
     parser.add_argument("filename", help = "File to patch (saves as <filename>_patched in folder with file)")
+    parser.add_argument("-p", "--patch-header", default=False, help = "Insert a header file from _DYpatched", action = argparse.BooleanOptionalAction)
     args = parser.parse_args()
     patch()
 

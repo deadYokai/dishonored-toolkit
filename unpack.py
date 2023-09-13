@@ -166,9 +166,14 @@ def unpack():
         }
         data.append(_object)
 
+    data.sort(key=lambda item: item["Offset"])
+
     # check if exists folder
     if not os.path.isdir(outDir):
         os.mkdir(outDir)
+
+    if os.path.isfile(f"{outDir}/_objects.txt"):
+        os.remove(f"{outDir}/_objects.txt")
 
     # extract header
     reader.seek(0)
@@ -181,15 +186,16 @@ def unpack():
         objFileName = obj["FileName"].decode("utf-8").replace('\x00','')
         objSize = obj["Size"]
         objOffset = obj["Offset"]
+        objHeaderOff = obj["DataOff"]
+        objHeaderSize = obj["SizeOff"]
 
         skip = False
         if args.filter != None:
             if objFileName.find(args.filter) == -1:
                 skip = True
 
+        objFileName += f".{objid}"
         if not skip:
-            objFileName += f".{objid}"
-
             p = f"{outDir}/{objFileName}"
 
             print(f"- {objFileName}\n  size: {objSize}\n  offset: {objOffset}")
@@ -197,11 +203,14 @@ def unpack():
             reader.seek(objOffset)
             fileBytes = reader.readBytes(objSize)
 
-            with open(f"{outDir}/_objects.txt", "a") as objFile:
-                objFile.write(f"{objFileName}; {objSize}; {objOffset}\n")
 
             with open(p, "wb") as objFile:
                 objFile.write(fileBytes)
+
+
+
+        with open(f"{outDir}/_objects.txt", "a") as objFile:
+            objFile.write(f"{objFileName}; {objHeaderSize}; {objSize}; {objHeaderOff}; {objOffset}\n")
 
         objid += 1
 

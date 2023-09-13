@@ -38,25 +38,38 @@ Therefore, I am posting this project here in the hope that it will be useful to 
 
 **_DYpatched:** `ObjectName.ObjectId_patched`
 
-**_objects.txt:** `ObjectName.ObjectId; ObjectSize; ObjectOffset`
+**_objects.txt:** `ObjectName.ObjectId; SizeOffset; ObjectSize; OffetOffset; ObjectOffset`
+* `ObjectName`: name of object
+
+* `ObjectId`: id of object after unpacking
+
+* `SizeOffset`: offset to size value in header
+
+* `ObjectSize`: object size
+
+* `OffetOffset`: object offset written in header
+
+* `ObjectOffset`: offset to object in file
+
+**!IMPORTANT!:** files in `_objects.txt` sorted by `ObjectOffset`
 
 #### Unpack
 
 ```bash
 python3 unpack.py -f <filter> upkfile
 ```
+* `-f` or `--filter`: sets filter to filename (`*<filter>*`)
 
 Example: `python3 unpack.py -f Blurb ../L_Tower_Script.upk`
 
 #### Patch
 
 ```bash
-python3 patch.py upkfile
+python3 patch.py -p upkfile
 ```
+* `-p` or `--patch-header`: insert header file from `_DYextracted`
 
 Example: `python3 patch.py ../L_Tower_Script.upk`
-
-**Notice:** files `_header` and `_objects.txt` not uses in patcher
 
 #### ___
 

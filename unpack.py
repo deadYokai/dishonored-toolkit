@@ -182,24 +182,26 @@ def unpack():
         objSize = obj["Size"]
         objOffset = obj["Offset"]
 
+        skip = False
         if args.filter != None:
             if objFileName.find(args.filter) == -1:
-                continue
+                skip = True
 
-        objFileName += f".{objid}"
+        if not skip:
+            objFileName += f".{objid}"
 
-        p = f"{outDir}/{objFileName}"
+            p = f"{outDir}/{objFileName}"
 
-        print(f"- {objFileName}\n  size: {objSize}\n  offset: {objOffset}")
+            print(f"- {objFileName}\n  size: {objSize}\n  offset: {objOffset}")
 
-        reader.seek(objOffset)
-        fileBytes = reader.readBytes(objSize)
+            reader.seek(objOffset)
+            fileBytes = reader.readBytes(objSize)
 
-        with open(f"{outDir}/_objects.txt", "a") as objFile:
-            objFile.write(f"{objFileName}; {objSize}; {objOffset}\n")
+            with open(f"{outDir}/_objects.txt", "a") as objFile:
+                objFile.write(f"{objFileName}; {objSize}; {objOffset}\n")
 
-        with open(p, "wb") as objFile:
-            objFile.write(fileBytes)
+            with open(p, "wb") as objFile:
+                objFile.write(fileBytes)
 
         objid += 1
 

@@ -4,6 +4,8 @@ from pathlib import Path
 from binary import BinaryStream
 import argparse
 
+from upkCompressor import DYCompressor
+
 def unpack():
 
     filepath = Path(args.filename)
@@ -67,6 +69,43 @@ def unpack():
     cookerVer = reader.readInt32()
     compressionFlags = reader.readInt32()
 
+    compressor = DYCompressor(compressionFlags)
+
+    ctype = compressor.getCompression()
+
+    print(f"Package version: {pkgVersion}")
+    print(f"Package License version: {pkgLVersion}")
+    print(f"Engine version: {engineVer}")
+    print(f"Cooker version: {cookerVer}")
+    print(f"Compression: {ctype}")
+
+    if ctype != "None":
+        raise Exception("Compressed files not support yet\nPlease use Unreal Package Decompressor")
+
+        #
+        # Trying to decompress
+        #
+        # chunksnum = reader.readInt32()
+        #
+        # fname = filepath.stem
+        #
+        # if not os.path.isdir("_DYuncompressed"):
+        #     os.mkdir("_DYuncompressed")
+        #
+        # with open(f"_DYuncompressed/{fname}.upk", "wb") as unfile:
+        #     # for chunk in range(chunksnum):
+        #     uOffset = reader.readInt32()
+        #     uSize = reader.readInt32()
+        #     cOffset = reader.readInt32()
+        #     cSize = reader.readInt32()
+        #
+        #     reader.seek(cOffset)
+        #     data = reader.readBytes(cSize)
+        #
+        #     out = compressor.unpackLZO(data, cOffset)
+        #     reader.seek(uOffset)
+        #     unfile.write(reader.readBytes(uSize))
+
     # create list for NameTable
     reader.seek(nameOffset)
     names = []
@@ -127,11 +166,6 @@ def unpack():
             "unknown3": reader.readInt32()
         }
         imports.append(_import)
-
-    print(f"Package version: {pkgVersion}")
-    print(f"Package License version: {pkgLVersion}")
-    print(f"Engine version: {engineVer}")
-    print(f"Cooker version: {cookerVer}")
 
     data = []
     print(f"Objects:")

@@ -223,15 +223,15 @@ def patch():
                     if a and b:
                         a = False
                         print("Patched Objects:")
-                        oDiff = 0
-                    else:
-                        oDiff = offsetDiff
 
-
-                    offe = offset + oDiff
+                    oDiff = offsetDiff
 
                     if b:
                         print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
+                        oDiff = offsetDiff - sizeDiff
+
+                    offe = offset + oDiff
+
 
                     pr.seek(offe)
                     pr.writeBytes(writeData)

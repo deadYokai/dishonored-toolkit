@@ -59,7 +59,7 @@ for fileToExtract in files:
                 skip = True # skip \x88
                 output_dict[name] = str(origText)
 
-        if output_dict[name] == "Follow me Corvo!":
+        if output_dict[name] == "Follow me, Corvo!":
                 patch = True
         else:
                 patch = False

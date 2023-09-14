@@ -1,1 +1,2 @@
+python_lzo>=1.11
 PyYAML==6.0.1

@@ -34,12 +34,14 @@ Therefore, I am posting this project here in the hope that it will be useful to 
 
 #### File Structure:
 
-**_DYextracted:** `ObjectName.ObjectId`
+**_DYextracted:** `ObjectName.ObjectId.ObjectType`
 
-**_DYpatched:** `ObjectName.ObjectId_patched`
+**_DYpatched:** `ObjectName.ObjectId.ObjectType_patched`
 
-**_objects.txt:** `ObjectName.ObjectId; SizeOffset; ObjectSize; OffetOffset; ObjectOffset`
+**_objects.txt:** `ObjectName.ObjectId.ObjectType; SizeOffset; ObjectSize; OffetOffset; ObjectOffset`
 * `ObjectName`: name of object
+
+* `ObjectType`: type of object
 
 * `ObjectId`: id of object after unpacking
 

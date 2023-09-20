@@ -11,18 +11,24 @@ class DYCompressor:
         self.zlib = 1
         self.lzo = 2
         self.lzx = 4
+        self.sign_upk = int.from_bytes(bytes([158, 42, 131, 193]))
 
-    def unpackLZO(self, chunk, clen):
-        reader = BinaryStream(io.BytesIO(chunk))
-        signature = reader.readInt32()
-        if signature != -1641380927:
-            raise Exception("LZO: invalid signature")
+    def unpackLZO(self, reader):
+        cSign = reader.readUInt32()
 
-        blocksize = reader.readInt32()
-        print(blocksize)
+        if cSign != self.sign_upk:
+            raise Exception("Signature mismatch")
 
-        return "none"
-        # return lzo.decompress(chunk, False, clen)
+        blockSize = reader.readInt32()
+
+        cSize = reader.readInt32()
+        uSize = reader.readInt32()
+
+        numBlock = (uSize + blockSize - 1) / blockSize
+
+        print(numBlock)
+
+        return lzo.decompress(cData)
 
     def getCompression(self):
         if self.inputType == 0:

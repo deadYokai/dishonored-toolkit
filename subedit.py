@@ -5,6 +5,7 @@ import yaml
 import struct
 import math
 from unpack import unpack
+from patch import patch
 from upkCompressor import DYCompressor
 import argparse
 
@@ -190,13 +191,13 @@ def packYaml(fp, inYaml):
                 if arr != []:
                     a = arr[-1][2]
                     pStr = yod[name] + "\x00"
-                    eStr = pStr.encode("utf-16")[2:]
+                    eStr = pStr.encode("utf-16le")[2:]
                     lStr = len(pStr) * -1
                     reader.seek(0)
                     sData = reader.readBytes(arr[-1][0])
                     reader.seek(arr[-1][0] + arr[-1][1] + 4)
                     eData = reader.readBytes(fileSize - reader.offset())
-                    newFile = str(subFile).replace("_DYextracted", "_DYpatched")
+                    newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
                     if not os.path.isdir(os.path.dirname(newFile)):
                         os.makedirs(os.path.dirname(newFile), exist_ok=True)
                 
@@ -208,7 +209,8 @@ def packYaml(fp, inYaml):
                         r.writeBytes(eData)
                 else:
                     print(f"WARN: No localization on {os.path.basename(subFile)}, skipping")
-
+    
+    patch(fp, False, addDir=upkName, silent=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dishonored subtitle modifier", epilog="With love <3")

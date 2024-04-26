@@ -135,81 +135,64 @@ def packYaml(fp, inYaml):
                 except:
                     break
 
-                reader.seek(reader.offset() + 76)
-                # while True:
-                #     pointer = reader.readInt32()
-                #     try:
-                #         if pointer == 1347584:
-                #             reader.seek(reader.offset() - 3)
-                #             pointer = reader.readInt32()
-                #         if pointer == 1347653:
-                #             reader.seek(reader.offset() - 3)
-                #             pointer = reader.readInt32()
-                #     except struct.error:
-                #         break
-                #
-                #     if pointer == 5264 or pointer == 5132:
-                #         reader.readInt32()
-                #         break
-                #
-                # if pointer != 5264:
-                #     reader.readBytes(92)
-                #
-                # reader.readBytes(56)
-                #
-                # numL = reader.readInt32()
-                #
-                # if numL > 1000:
-                #     while True:
-                #         numL = reader.readInt32()
-                #         if numL > 0 and numL < 1000 and numL != 0:
-                #             break
-                #
-                # if numL == 0:
-                #     print("numL == 0")
-                #     return
-                # 
-                # try:
-                #     reader.readInt32()
-                # except:
-                #     pass
+                reader.seek(reader.offset() + 36)
                 
+                noLoc = False
+                try:
+                    notFound = True
+                    while notFound:
+                        pointerOff = reader.offset()
+                        pointer = reader.readInt32()
+                        if pointer != 0:
+                            pt = reader.readInt32()
+                            if pt != 0:
+                                pt = reader.readInt32()
+                                if pt != 0:
+                                    notFound = False
+                                    reader.seek(pointerOff)
+                except struct.error:
+                    noLoc = True
+
+
                 i = 0
                 arr = []
-                while True:
-                    try:
-                        out = strFinder(reader)
-                        i += 1
-                        if out[2] == b"!!!! LOCALIZATION MISSING !!!!\x00":
-                            i -= 1
-                        elif out[2].startswith(b"LOC MISSING"):
-                            i -= 1
-                        else:
-                            arr.append(out)
-                    except struct.error:
-                        break
-                if arr != []:
-                    a = arr[-1][2]
-                    pStr = yod[name] + "\x00"
-                    eStr = pStr.encode("utf-16le")[2:]
-                    lStr = len(pStr) * -1
-                    reader.seek(0)
-                    sData = reader.readBytes(arr[-1][0])
-                    reader.seek(arr[-1][0] + arr[-1][1] + 4)
-                    eData = reader.readBytes(fileSize - reader.offset())
-                    newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
-                    if not os.path.isdir(os.path.dirname(newFile)):
-                        os.makedirs(os.path.dirname(newFile), exist_ok=True)
-                
-                    with open(newFile, "wb") as modded:
-                        r = BinaryStream(modded)
-                        r.writeBytes(sData)
-                        r.writeInt32(lStr)
-                        r.writeBytes(eStr)
-                        r.writeBytes(eData)
+                if not noLoc:
+                    while True:
+                        try:
+                            out = strFinder(reader)
+                            i += 1
+                            if out[2] == b"!!!! LOCALIZATION MISSING !!!!\x00":
+                                i -= 1
+                            elif out[2].startswith(b"LOC MISSING"):
+                                i -= 1
+                            else:
+                                arr.append(out)
+                        except struct.error:
+                            break
+                    if arr != []:
+                        a = arr[-1][2]
+                        pStr = yod[name] + "\x00"
+                        eStr = pStr.encode("utf-16le")[2:]
+                        lStr = len(pStr) * -1
+                        reader.seek(0)
+                        sData = reader.readBytes(arr[-1][0])
+                        reader.seek(arr[-1][0] + arr[-1][1] + 4)
+                        eData = reader.readBytes(fileSize - reader.offset())
+                        newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
+                        if not os.path.isdir(os.path.dirname(newFile)):
+                            os.makedirs(os.path.dirname(newFile), exist_ok=True)
+                    
+                        with open(newFile, "wb") as modded:
+                            r = BinaryStream(modded)
+                            r.writeBytes(sData)
+                            r.writeInt32(lStr)
+                            r.writeBytes(eStr)
+                            r.writeBytes(eData)
+                    else:
+                        print(f"WARN(arr = []): No localization on {os.path.basename(subFile)}, skipping")
                 else:
-                    print(f"WARN: No localization on {os.path.basename(subFile)}, skipping")
-    
+                    print(f"WARN(noLoc = True): No localization on {os.path.basename(subFile)}, skipping")
+
     patch(fp, False, addDir=upkName, silent=True)
 
 if __name__ == "__main__":

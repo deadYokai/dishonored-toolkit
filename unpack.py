@@ -74,10 +74,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = 'UPK Unpacker (Dishonored)', epilog = 'Work in progress')
     parser.add_argument("filename", help = "File to unpack")
     parser.add_argument("-f", "--filter", help = "Filter files by name")
+    parser.add_argument("--split", help = "Create dir in _DYextracted", default=False, action = argparse.BooleanOptionalAction)
     parser.add_argument("--dry-run", help = "Run without changes", default=False, action = argparse.BooleanOptionalAction)
     args = parser.parse_args()
     fp = Path(args.filename)
-    unpack(fp, args.filter, dry=args.dry_run)
+    unpack(fp, args.filter, dry=args.dry_run, split=args.split)
 
 
 

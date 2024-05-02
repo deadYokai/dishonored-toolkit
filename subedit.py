@@ -1,4 +1,5 @@
 import os
+from os.path import basename
 from pathlib import Path
 from binary import BinaryStream
 import yaml
@@ -8,29 +9,10 @@ from unpack import unpack
 from patch import patch
 from upkCompressor import DYCompressor
 import argparse
+import re
+import operator
 
 dir = "_DYextracted"
-
-def strFinder(r):
-    off = r.offset()
-    ls = r.readInt32()
-
-    while ls == 0:
-        h = r.offset()
-        off = h
-        ls = r.readInt32()
-
-    if ls > 1000:
-        r.readInt32()
-        off = r.offset()
-        ls = r.readInt32()
-
-    is2b = False
-    if ls < 0:
-        is2b = True
-        ls = abs(ls) * 2
-
-    return [off, ls, r.readString(ls), is2b]
 
 def unpackYaml(fp, outYaml):
     print("-- Extracting text from upk")
@@ -63,6 +45,8 @@ def unpackYaml(fp, outYaml):
 
             seekList = [129, 154, 179]
 
+            reader.seek(36)
+
             for val in seekList:
                 reader.seek(val)
                 sLen = reader.readInt32()
@@ -88,6 +72,58 @@ def unpackYaml(fp, outYaml):
 
     with open(outYaml, "w") as yf:
         yaml.dump(od, yf)
+
+def recPos(r, fs):
+    if r.offset() + 8 >=fs:
+        return False
+
+    q = True
+    o = r.offset()
+    p = 0
+
+    while q:
+        if r.offset() + 16 >=fs:
+            q = False
+
+        a = []
+        k = []
+
+        for i in range(3):
+            a.append(r.readInt32())
+            k.append(r.offset())
+
+        r.seek(r.offset() - 11)
+
+        if a == [0, 4, 0]:
+            p = max(k)
+
+    of = p
+    #print(of)
+    return of
+
+def getLangText(r, fs):
+    if r.offset() + 8 >=fs:
+        return [False, None, "utf-8"]
+    langCode = r.readInt32()
+    if langCode == 0:
+        langCode = r.readInt32()
+    stroff = r.offset()
+    skip = False
+    enc = "latin1"
+    if r.readInt32() != 0:
+        r.seek(stroff)
+        len = langCode
+        skip = True
+    else:
+        len = r.readInt32()
+    if len < 0:
+        enc = "utf-16"
+        len = abs(len * 2)
+    stroff = r.offset() - 4
+    text = r.readBytes(len)
+    if re.search("LOC.* MISSING", text.decode(enc)):
+        skip = True
+    return [skip, text, enc, stroff, len]
 
 def packYaml(fp, inYaml):
     print("-- Packing text to upk")
@@ -135,63 +171,47 @@ def packYaml(fp, inYaml):
                 except:
                     break
 
-                reader.seek(reader.offset() + 36)
-                
-                noLoc = False
-                try:
-                    notFound = True
-                    while notFound:
-                        pointerOff = reader.offset()
-                        pointer = reader.readInt32()
-                        if pointer != 0:
-                            pt = reader.readInt32()
-                            if pt != 0:
-                                pt = reader.readInt32()
-                                if pt != 0:
-                                    notFound = False
-                                    reader.seek(pointerOff)
-                except struct.error:
-                    noLoc = True
-
-
-                i = 0
-                arr = []
-                if not noLoc:
-                    while True:
-                        try:
-                            out = strFinder(reader)
-                            i += 1
-                            if out[2] == b"!!!! LOCALIZATION MISSING !!!!\x00":
-                                i -= 1
-                            elif out[2].startswith(b"LOC MISSING"):
-                                i -= 1
-                            else:
-                                arr.append(out)
-                        except struct.error:
-                            break
-                    if arr != []:
-                        a = arr[-1][2]
-                        pStr = yod[name] + "\x00"
-                        eStr = pStr.encode("utf-16le")[2:]
-                        lStr = len(pStr) * -1
-                        reader.seek(0)
-                        sData = reader.readBytes(arr[-1][0])
-                        reader.seek(arr[-1][0] + arr[-1][1] + 4)
-                        eData = reader.readBytes(fileSize - reader.offset())
-                        newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
-                        if not os.path.isdir(os.path.dirname(newFile)):
-                            os.makedirs(os.path.dirname(newFile), exist_ok=True)
-                    
-                        with open(newFile, "wb") as modded:
-                            r = BinaryStream(modded)
-                            r.writeBytes(sData)
-                            r.writeInt32(lStr)
-                            r.writeBytes(eStr)
-                            r.writeBytes(eData)
+                reader.readBytes(16)
+                rp = recPos(reader, fileSize)
+                if not rp:
+                    continue
+                reader.seek(rp + 12)
+                count = reader.readUInt32()
+                tl = []
+                a = 0
+                while a < count:
+                    t = getLangText(reader, fileSize)
+                    if t[0]:
+                        a -= 1
+                    elif t[1] is not None:
+                        tl.append([t[3], t[1].decode(t[2]), t[4]])
+                        a += 1
                     else:
-                        print(f"WARN(arr = []): No localization on {os.path.basename(subFile)}, skipping")
-                else:
-                    print(f"WARN(noLoc = True): No localization on {os.path.basename(subFile)}, skipping")
+                        break
+
+                if tl == []:
+                    continue
+                pStr = yod[name]
+                eStr = pStr.encode("utf-16le") + b"\x00"
+                lStr = len(eStr) / 2
+                if isinstance(lStr, float):
+                    eStr += eStr.replace(b"\x00", b"\x20") + b"\x00"
+                    lStr = math.ceil(lStr)
+                    lStr = lStr * -1
+                reader.seek(0)
+                sData = reader.readBytes(tl[-1][0])
+                reader.seek(tl[-1][0] + tl[-1][2])
+                eData = reader.readBytes(fileSize - reader.offset())
+                newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
+                if not os.path.isdir(os.path.dirname(newFile)):
+                    os.makedirs(os.path.dirname(newFile), exist_ok=True)
+            
+                with open(newFile, "wb") as modded:
+                    r = BinaryStream(modded)
+                    r.writeBytes(sData)
+                    r.writeInt32(lStr)
+                    r.writeBytes(eStr)
+                    r.writeBytes(eData)
 
     patch(fp, False, addDir=upkName, silent=True)
 

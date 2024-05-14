@@ -68,7 +68,7 @@ def unpack(filepath, namefilter=None, split=False, silent=False, dry=False):
                 objFile.write(f"{objFileName}.{objType}; {objHeaderSize}; {objSize}; {objHeaderOff}; {objOffset}\n")
 
         objid += 1
-
+    return rr
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = 'UPK Unpacker (Dishonored)', epilog = 'Work in progress')

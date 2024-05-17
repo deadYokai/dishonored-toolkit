@@ -113,7 +113,9 @@ def readerGet(filepath, silent=False, split=False):
     # create list for NameTable
     reader.seek(nameOffset)
     names = []
+    namesOffsets = []
     for i in range(nameCount):
+        namesOffsets.append(reader.offset())
         nameLen = reader.readInt32()
         names.append(reader.readBytes(nameLen)) # .decode('utf-8').replace('\x00','')
 
@@ -122,7 +124,7 @@ def readerGet(filepath, silent=False, split=False):
         reader.readInt32()
         #
 
-    names.append("NULL")
+    names.append(b"NULL\x00")
 
     # create list for Exports
     reader.seek(exportOffset)
@@ -204,7 +206,7 @@ def readerGet(filepath, silent=False, split=False):
 
     data.sort(key=lambda item: item["Offset"])
 
-    return {"reader": reader, "data": data, "imports": imports, "exports": exports, "dir": outDir, "headerSize": headerSize}
+    return {"reader": reader, "data": data, "imports": imports, "exports": exports, "dir": outDir, "headerSize": headerSize, "names": names, "offsetList": {"names": namesOffsets}}
 
 
 

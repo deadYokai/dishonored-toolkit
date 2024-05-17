@@ -68,6 +68,10 @@ def unpack(filepath, namefilter=None, split=False, silent=False, dry=False):
                 objFile.write(f"{objFileName}.{objType}; {objHeaderSize}; {objSize}; {objHeaderOff}; {objOffset}\n")
 
         objid += 1
+    if not dry:
+        with open(f"{outDir}/_names.txt", "w") as namesFile:
+            for l in rr["names"]:
+                namesFile.write(l.decode("utf-8").replace("\x00", "") + "\n")
     return rr
 
 if __name__ == "__main__":

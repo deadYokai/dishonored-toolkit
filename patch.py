@@ -69,11 +69,12 @@ def patch(filepath, ph, addDir = None, silent=False):
                             tmpPath += f"{addDir}/"
                         tmpPath += f"{name}_patched"
 
+
                         psize = os.stat(tmpPath).st_size
                         with open(tmpPath, "rb") as f:
+                            writeData = f.read()
                             sizeDiff = psize - size
                             offsetDiff = offsetDiff + sizeDiff
-                            writeData = f.read()
                             b = True
                     else:
                         sizeDiff = 0
@@ -104,6 +105,11 @@ def patch(filepath, ph, addDir = None, silent=False):
                     pr.seek(headerOff)
                     pr.writeInt32(offe)
 
+                    if name.split(".")[-1] == "Texture2D":
+                        pr.seek(offe + 281)
+                        pr.writeInt32(pr.offset() + 4)
+                        pr.seek(pr.offset() + 16)
+                        pr.writeInt32(pr.offset() + 4)
 
 
 if __name__ == "__main__":
@@ -112,7 +118,10 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--patch-header", default=False, help = "Insert a header file from _DYpatched", action = argparse.BooleanOptionalAction)
     parser.add_argument("-s", "--split", default=False, help = "Get patched files from _DYpatched/<upk name>", action = argparse.BooleanOptionalAction)
     args = parser.parse_args()
-    patch(Path(args.filename), args.patch_header, args.split)
+    ad = None
+    if args.split:
+        ad = '.'.join(os.path.basename(args.filename).split(".")[::-1][-1::])
+    patch(Path(args.filename), args.patch_header, ad)
 
 
 

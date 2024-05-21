@@ -27,6 +27,7 @@ Therefore, I am posting this project here in the hope that it will be useful to 
 * [configparser](https://pypi.org/project/configparser/)
 * [PyYAML](https://pypi.org/project/PyYAML/)
 * [cchardet](https://pypi.org/project/cchardet/)
+* [Wand](https://pypi.org/project/Wand/) (image manipulation)
 
 ## Usage
 
@@ -60,18 +61,35 @@ Therefore, I am posting this project here in the hope that it will be useful to 
 ```bash
 python3 unpack.py -f <filter> upkfile
 ```
+* `--split`: extract upk to `_DYextracted/<upkname>`
 * `-f` or `--filter`: sets filter to filename (`*<filter>*`)
 
 Example: `python3 unpack.py -f Blurb ../L_Tower_Script.upk`
 
 #### Patch
 
+Patches files from _DYpatched with suffix `_patched`.
+
+Example: `_DYpatched/ChaletComprime-CologneEighty_PageA.4.Texture2D_patched`
+
 ```bash
-python3 patch.py -p upkfile
+python3 patch.py -p upkfile --split
 ```
+* `-s` or `--split`: use files from `_DYpatched/<upkname>`
 * `-p` or `--patch-header`: insert header file from `_DYextracted`
 
 Example: `python3 patch.py ../L_Tower_Script.upk`
+
+#### Textures
+
+- Unpack
+    ```bash
+    python3 texture2d.py <filename>
+    ```
+- Pack
+    ```bash
+    python3 texture2d.py -p <filename> <ddsfile>
+    ```
 
 #### ___
 

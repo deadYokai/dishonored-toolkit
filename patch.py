@@ -110,8 +110,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = 'UPK Patcher (Dishonored), uses files from folder "_DYpatched"', epilog = 'Work in progress')
     parser.add_argument("filename", help = "File to patch (saves as <filename>_patched in folder with file)")
     parser.add_argument("-p", "--patch-header", default=False, help = "Insert a header file from _DYpatched", action = argparse.BooleanOptionalAction)
+    parser.add_argument("-s", "--split", default=False, help = "Get patched files from _DYpatched/<upk name>", action = argparse.BooleanOptionalAction)
     args = parser.parse_args()
-    patch(Path(args.filename), args.patch_header)
+    patch(Path(args.filename), args.patch_header, args.split)
 
 
 

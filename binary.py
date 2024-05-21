@@ -4,6 +4,9 @@ class BinaryStream:
     def __init__(self, base_stream):
         self.base_stream = base_stream
 
+    def clear(self):
+         self.base_stream.truncate()
+
     def readByte(self):
         return self.base_stream.read(1)
 

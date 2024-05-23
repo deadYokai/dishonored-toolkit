@@ -22,12 +22,13 @@ But there was another problem - subtitles. And to replace the subtitles, I had t
 
 Therefore, I am posting this project here in the hope that it will be useful to someone.
 
-## Used Libs (Pypi)
+## Used Libs
 
 * [configparser](https://pypi.org/project/configparser/)
 * [PyYAML](https://pypi.org/project/PyYAML/)
 * [cchardet](https://pypi.org/project/cchardet/)
 * [Wand](https://pypi.org/project/Wand/) (image manipulation)
+* [FontForge](https://fontforge.org) (font manipulation)
 
 ## Usage
 

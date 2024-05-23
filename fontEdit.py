@@ -1,9 +1,42 @@
 import os
+from os.path import isfile
 import re
 import sys
 import json
+import fontforge
 
+import glob
+from wand.image import Image, Color
 from binary import BinaryStream
+from texture2d import process
+def create(inFile, fontFile):
+    fn = os.path.basename(inFile)
+    fd = os.path.dirname(inFile)
+    dir = f"{fd}/_{fn}"
+
+    fontInfoFile = dir + "/fontInfo.json"   
+    if not os.path.isfile(fontInfoFile):
+        extract(inFile, dir)
+
+    with open(fontInfoFile, "r") as infoFile:
+        fontInfo = json.load(infoFile)
+    
+    charList = sorted(list(set([a for a in fontInfo["Charset"]])))[1::]
+    font = fontforge.open(fontFile)
+    font.encoding = "UnicodeFull"
+    for c in charList:
+        font.selection.select(("more", None), ord(c))
+    for glyph in font:
+        print(glyph)
+        if font[glyph].isWorthOutputting():
+            svgFile = dir + "/testSubject/" + font[glyph].glyphname + ".svg"
+            font[glyph].export(svgFile)
+            with Image(filename=svgFile, background=Color("transparent"), resolution=fontInfo["FontHeight"]) as img:
+                img.format = "dds"
+                img.compression = "dxt5"
+                img.opaque_paint(target="#000000", fill="white")
+                img.save(filename=svgFile.replace(".svg", ".dds"))
+            os.remove(svgFile)
 
 def extract(fileToExtract, out):
 
@@ -54,17 +87,43 @@ def extract(fileToExtract, out):
         with open(f"{out}/fontInfo.json", "w", encoding="utf-8") as inf:
             json.dump({"Name": fontName, "Charset": chars, "FontHeight": fontHeight}, inf, ensure_ascii=False, indent=4)
 
+        name = os.path.basename(fileToExtract).split(".")[0]
+        ddsGlob = glob.glob(f"{out}/../{name}*.dds")
+        if ddsGlob == []:
+            tex = glob.glob(f"{out}/../{name}*.Texture2D")[0]
+            process(tex)
+            ddsGlob = glob.glob(f"{out}/../{name}*.dds")
+        ddsFile = Image(filename=ddsGlob[0])
+        os.makedirs(f"{out}/chars", exist_ok=True)
+
         with open(f"{out}/charTable.json", "w", encoding="utf-8") as cf:
-            chars = []
+            charIdx = sorted(list(set([ord(a) for a in chars])))[1::]
+            print(charIdx)
+            charsTex = []
             reader.seek(offCharTable)
+            cx = 0
             for c in range(charNum):
-                chars.append({"StartU": reader.readInt32(), 
-                              "StartV": reader.readInt32(), 
-                              "USize": reader.readInt32(),
-                              "VSize": reader.readInt32(),
-                              "TextureIndex": int.from_bytes(reader.readByte()),
-                              "VerticalOffset": reader.readInt32()})
-            json.dump(chars, cf, indent=4, ensure_ascii=False)
+                dd = {"StartU": reader.readInt32(), 
+                      "StartV": reader.readInt32(), 
+                      "USize": reader.readInt32(),
+                      "VSize": reader.readInt32(),
+                      "TextureIndex": int.from_bytes(reader.readByte()),
+                      "VerticalOffset": reader.readInt32()}
+                charsTex.append(dd)
+                
+                x = dd["StartU"]
+                y = dd["StartV"]
+                w = dd["USize"]
+                h = dd["VSize"]
+                if c >=32: # before is null chars
+                    if w != 0 and h != 0:
+                        with ddsFile[x:w+x, y:h+y] as cImg:
+                            ch = chr(charIdx[cx])
+                            charTex = ch.encode("utf-16le").hex()
+                            cImg.save(filename=f"{out}/chars/{c}.{charTex}.dds")
+                            cx += 1
+
+            json.dump(charsTex, cf, indent=4, ensure_ascii=False)
 
 
 if __name__ == "__main__":
@@ -78,4 +137,10 @@ if __name__ == "__main__":
                     fn = os.path.basename(filename)
                     fd = os.path.dirname(filename)
                     extract(filename, f"{fd}/_{fn}")
+                break
+            if param == "p":
+                if len(args) > args.index(arg) + 2:
+                    filename = args[args.index(arg) + 1]
+                    fontfile = args[args.index(arg) + 2]
+                    create(filename, fontfile)
                 break

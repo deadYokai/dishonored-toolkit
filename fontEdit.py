@@ -3,10 +3,11 @@ from os.path import isfile
 import re
 import sys
 import json
-import fontforge
 
 import glob
 from wand.image import Image, Color
+from wand.drawing import Drawing
+from wand.color import Color
 from binary import BinaryStream
 from texture2d import process
 def create(inFile, fontFile):
@@ -14,31 +15,65 @@ def create(inFile, fontFile):
     fd = os.path.dirname(inFile)
     dir = f"{fd}/_{fn}"
 
+    size = [1024, 512]
+
     fontInfoFile = dir + "/fontInfo.json"   
     if not os.path.isfile(fontInfoFile):
-        extract(inFile, dir)
+        extract(inFile, dir, True)
 
     with open(fontInfoFile, "r") as infoFile:
         fontInfo = json.load(infoFile)
     
     charList = sorted(list(set([a for a in fontInfo["Charset"]])))[1::]
-    font = fontforge.open(fontFile)
-    font.encoding = "UnicodeFull"
-    for c in charList:
-        font.selection.select(("more", None), ord(c))
-    for glyph in font:
-        print(glyph)
-        if font[glyph].isWorthOutputting():
-            svgFile = dir + "/testSubject/" + font[glyph].glyphname + ".svg"
-            font[glyph].export(svgFile)
-            with Image(filename=svgFile, background=Color("transparent"), resolution=fontInfo["FontHeight"]) as img:
-                img.format = "dds"
-                img.compression = "dxt5"
-                img.opaque_paint(target="#000000", fill="white")
-                img.save(filename=svgFile.replace(".svg", ".dds"))
-            os.remove(svgFile)
+    newFontDds = Image(width=size[0], height=size[1])
+    newFontDds.format = "dds"
+    newFontDds.compression = "dxt5"
+    x = 0 
+    y = 48
+    charTbl = []
 
-def extract(fileToExtract, out):
+    for i in range(0, 255): # range to FF00
+        charTbl.append({"CharHex": chr(i).encode("utf-16le").hex(), "ID": i, "CharData": {"StartU": 0, "StartV": 0, "USize": 0, "VSize": 0, "TextureIndex": 0, "VerticalOffset": 0}})
+
+    with Drawing() as draw:
+        draw.font = fontFile
+        draw.font_size = 40
+        draw.fill_color = Color("white")
+        for c in charList:
+            fm = draw.get_font_metrics(text=c, image=newFontDds)
+            w = int(fm.text_width)
+            h = int(fm.text_height)
+
+            if (x+w) > size[0]:
+                x = 0
+                y += h
+
+            if ord(c) <=len(charTbl):
+                charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": y, "TextureIndex": 0, "VerticalOffset": 0}}
+            else:
+                charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": y, "TextureIndex": 0, "VerticalOffset": 0}})
+            draw.text(x, y, c)
+            x = x + w
+
+    
+        draw(newFontDds)
+    newFontDds.save(filename=f"{dir}/{fontInfo["ddsFile"]}")
+    with open(dir + "/newCharTable.json", "w") as ncht:
+        json.dump(charTbl, ncht, indent=4, ensure_ascii=False)
+
+    fontR = getFileReader(inFile)
+    reader = fontR["reader"]
+    fHeader = reader.readBytes(20)
+    
+    reader.seek(fontR["offsets"]["charTableEnd"])
+    fFontData1 = reader.readBytes(fontR["offsets"]["charList"] - fontR["offsets"]["charTableEnd"])
+
+    reader.seek(fontR["offsets"]["charListEnd"])
+    fFontData2 = reader.readBytes(fontR["offsets"]["charNum"][1] - fontR["offsets"]["charListEnd"])
+
+
+
+def getFileReader(fileToExtract):
 
         # open file and create stream
         fileSize = os.stat(fileToExtract).st_size
@@ -57,16 +92,15 @@ def extract(fileToExtract, out):
 
         offCharTable = reader.offset()
 
-        if not os.path.isdir(out):
-                os.mkdir(out)
 
         reader.seek(offCharNum + charTableLen)
-
+        endTable = reader.offset()
         reader.readBytes(160)
         
+        fontDataLenOff = reader.offset()
         fontDataLen = reader.readInt32()
         reader.readInt32()
-        fdo = reader.offset()
+        fdo = reader.offset() # font data start offset
         reader.readBytes(32)
         fontNameSize = reader.readInt32()
         fontName = reader.readBytes(fontNameSize).decode("utf-8")
@@ -74,18 +108,30 @@ def extract(fileToExtract, out):
         important24bytes = reader.readBytes(24)
         fontHeight = reader.readFloat()
         reader.readBytes(16)
-        charDataLen = reader.readInt32()
+        charListOff = reader.offset()
+        charDataLen = reader.readInt32() # string with string len size
         reader.readInt32()
         charLen = reader.readInt32() * -2
         chars = reader.readBytes(charLen).decode("utf-16le")
+        endCharsOff = reader.offset()
 
         reader.seek(fdo + fontDataLen)
         #yPadding = reader.readInt32()
         reader.readBytes(16)
+        ct = reader.offset()
         charNum2 = reader.readInt32()
+        return {"reader": reader, "fontInfo": {"fontName": fontName, "fontHeight": fontHeight, "CharNum": charNum, "Charset": chars}, "offsets": {"charTableLen": offOffset, "charNum": [offCharNum, ct], "charTable": offCharTable, "charList": charListOff, "fontDataLen": fontDataLenOff, "fontData": fdo, "charTableEnd": endTable, "charListEnd": endCharsOff}}
 
-        with open(f"{out}/fontInfo.json", "w", encoding="utf-8") as inf:
-            json.dump({"Name": fontName, "Charset": chars, "FontHeight": fontHeight}, inf, ensure_ascii=False, indent=4)
+def extract(fileToExtract, out, jsonOnly = False):
+
+        if not os.path.isdir(out):
+                os.mkdir(out)
+        fontR = getFileReader(fileToExtract)
+        reader = fontR["reader"]
+        charNum = fontR["fontInfo"]["CharNum"]
+        ct = fontR["offsets"]["charNum"][1]
+        offCharTable = fontR["offsets"]["charTable"]
+
 
         name = os.path.basename(fileToExtract).split(".")[0]
         ddsGlob = glob.glob(f"{out}/../{name}*.dds")
@@ -94,14 +140,20 @@ def extract(fileToExtract, out):
             process(tex)
             ddsGlob = glob.glob(f"{out}/../{name}*.dds")
         ddsFile = Image(filename=ddsGlob[0])
-        os.makedirs(f"{out}/chars", exist_ok=True)
+        fontR["fontInfo"]["ddsFile"] = os.path.basename(ddsGlob[0])
+        with open(f"{out}/fontInfo.json", "w", encoding="utf-8") as inf:
+            json.dump(fontR["fontInfo"], inf, ensure_ascii=False, indent=4)
+
+        if not jsonOnly:
+            os.makedirs(f"{out}/chars", exist_ok=True)
 
         with open(f"{out}/charTable.json", "w", encoding="utf-8") as cf:
-            charIdx = sorted(list(set([ord(a) for a in chars])))[1::]
-            print(charIdx)
-            charsTex = []
+            charTableArr = []
+            reader.seek(ct+4)
+            for c in range(charNum):
+                charTableArr.append({"CharHex": reader.readBytes(2).hex(), "ID": reader.readInt16()})
+
             reader.seek(offCharTable)
-            cx = 0
             for c in range(charNum):
                 dd = {"StartU": reader.readInt32(), 
                       "StartV": reader.readInt32(), 
@@ -109,21 +161,20 @@ def extract(fileToExtract, out):
                       "VSize": reader.readInt32(),
                       "TextureIndex": int.from_bytes(reader.readByte()),
                       "VerticalOffset": reader.readInt32()}
-                charsTex.append(dd)
                 
+                charTableArr[c]["CharData"] = dd
+
                 x = dd["StartU"]
                 y = dd["StartV"]
                 w = dd["USize"]
                 h = dd["VSize"]
-                if c >=32: # before is null chars
+                if not jsonOnly:
                     if w != 0 and h != 0:
                         with ddsFile[x:w+x, y:h+y] as cImg:
-                            ch = chr(charIdx[cx])
-                            charTex = ch.encode("utf-16le").hex()
+                            charTex = charTableArr[c]["CharHex"]
                             cImg.save(filename=f"{out}/chars/{c}.{charTex}.dds")
-                            cx += 1
 
-            json.dump(charsTex, cf, indent=4, ensure_ascii=False)
+            json.dump(charTableArr, cf, indent=4, ensure_ascii=False)
 
 
 if __name__ == "__main__":

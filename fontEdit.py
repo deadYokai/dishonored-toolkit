@@ -49,9 +49,9 @@ def create(inFile, fontFile):
                 y += h
 
             if ord(c) <=len(charTbl):
-                charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": y, "TextureIndex": 0, "VerticalOffset": 0}}
+                charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}}
             else:
-                charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": y, "TextureIndex": 0, "VerticalOffset": 0}})
+                charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}})
             draw.text(x, y, c)
             x = x + w
 

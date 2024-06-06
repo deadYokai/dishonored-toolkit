@@ -11,7 +11,7 @@ from wand.drawing import Drawing
 from wand.color import Color
 from binary import BinaryStream
 import texture2d
-def create(inFile, fontFile):
+def create(inFile, fontFile, inCharset = ""):
     fn = os.path.basename(inFile)
     fd = os.path.dirname(inFile)
     dir = f"{fd}/_{fn}"
@@ -25,7 +25,11 @@ def create(inFile, fontFile):
     with open(fontInfoFile, "r") as infoFile:
         fontInfo = json.load(infoFile)
     
-    charList = sorted(list(set([a for a in fontInfo["Charset"]])))[1::]
+    fCharset = fontInfo["Charset"]
+    if inCharset != "":
+        fCharset = inCharset
+
+    charList = sorted(list(set([a for a in fCharset])))[1::]
     newFontDds = Image(width=size[0], height=size[1])
     newFontDds.format = "dds"
     newFontDds.compression = "dxt5"
@@ -251,5 +255,8 @@ if __name__ == "__main__":
                 if len(args) > args.index(arg) + 2:
                     filename = args[args.index(arg) + 1]
                     fontfile = args[args.index(arg) + 2]
-                    create(filename, fontfile)
+                    charset = ""
+                    if len(args) >=4:
+                        charset = args[args.index(arg) + 3]
+                    create(filename, fontfile, charset)
                 break

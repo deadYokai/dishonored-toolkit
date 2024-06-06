@@ -92,6 +92,20 @@ Example: `python3 patch.py ../L_Tower_Script.upk`
     python3 texture2d.py -p <filename> <ddsfile>
     ```
 
+#### Fonts
+
+**IMPORTANT**: font texture (Texture2D) must be in same directory as a .Font
+
+- Extract
+    ```bash
+    python3 fontEdit -e <path to .Font>
+    ```
+- Pack
+    ```bash
+    python3 fontEdit -p <path to .Font> <path to .ttf/.otf> [charset]
+    ```
+    `charset` - optional, if not specified uses charset from .Font
+
 #### ___
 
 I will write something more here

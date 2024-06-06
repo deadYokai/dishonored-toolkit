@@ -1,6 +1,7 @@
 import os
 from os.path import isfile
 import re
+import struct
 import sys
 import json
 
@@ -9,7 +10,7 @@ from wand.image import Image, Color
 from wand.drawing import Drawing
 from wand.color import Color
 from binary import BinaryStream
-from texture2d import process
+import texture2d
 def create(inFile, fontFile):
     fn = os.path.basename(inFile)
     fd = os.path.dirname(inFile)
@@ -57,7 +58,16 @@ def create(inFile, fontFile):
 
     
         draw(newFontDds)
+
     newFontDds.save(filename=f"{dir}/{fontInfo["ddsFile"]}")
+    texture2dFile = dir + "/../" + fontInfo["ddsFile"].replace(".dds", "")
+
+    with open(texture2dFile, "rb") as t2:
+        with open(texture2dFile + "_patched", "wb") as tt:
+            tt.write(t2.read())
+
+    texture2d.process(texture2dFile + "_patched", f"{dir}/{fontInfo["ddsFile"]}")
+
     with open(dir + "/newCharTable.json", "w") as ncht:
         json.dump(charTbl, ncht, indent=4, ensure_ascii=False)
 
@@ -71,6 +81,44 @@ def create(inFile, fontFile):
     reader.seek(fontR["offsets"]["charListEnd"])
     fFontData2 = reader.readBytes(fontR["offsets"]["charNum"][1] - fontR["offsets"]["charListEnd"])
 
+    charTable = b''
+    charTable += struct.pack("I", len(charTbl))
+    charTable += bytes(4)
+    for a in charTbl:
+        cd = a["CharData"]
+        charTable += struct.pack("I", cd["StartU"])
+        charTable += struct.pack("I", cd["StartV"])
+        charTable += struct.pack("I", cd["USize"])
+        charTable += struct.pack("I", cd["VSize"])
+        charTable += struct.pack("b", cd["TextureIndex"])
+        charTable += struct.pack("I", cd["VerticalOffset"])
+
+    newFontFile = fHeader
+    newFontFile += struct.pack("I", len(charTable))
+    newFontFile += bytes(4)
+    newFontFile += charTable
+    newFontFile += fFontData1
+
+    charlistbytes = struct.pack("i", (len(charList) + 1) * -1)
+    charlistbytes += ''.join(charList).encode("utf-16le")
+    charlistbytes += bytes(2)
+
+    charBytes = struct.pack("I", len(charlistbytes))
+    charBytes += bytes(4)
+    charBytes += charlistbytes
+
+    newFontFile += charBytes
+    newFontFile += fFontData2
+
+    charIndexBytes = struct.pack("I", len(charTbl))
+    for c in charTbl:
+       charIndexBytes += bytes.fromhex(c["CharHex"])
+       charIndexBytes += struct.pack("h", c["ID"])
+
+    newFontFile += charIndexBytes
+
+    with open(inFile + "_patched", "wb") as newFont:
+        newFont.write(newFontFile)
 
 
 def getFileReader(fileToExtract):
@@ -137,7 +185,7 @@ def extract(fileToExtract, out, jsonOnly = False):
         ddsGlob = glob.glob(f"{out}/../{name}*.dds")
         if ddsGlob == []:
             tex = glob.glob(f"{out}/../{name}*.Texture2D")[0]
-            process(tex)
+            texture2d.process(tex)
             ddsGlob = glob.glob(f"{out}/../{name}*.dds")
         ddsFile = Image(filename=ddsGlob[0])
         fontR["fontInfo"]["ddsFile"] = os.path.basename(ddsGlob[0])

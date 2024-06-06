@@ -33,26 +33,26 @@ def create(inFile, fontFile):
     y = 48
     charTbl = []
 
-    for i in range(0, 255): # range to FF00
+    for i in range(0, 256): # range to FF00
         charTbl.append({"CharHex": chr(i).encode("utf-16le").hex(), "ID": i, "CharData": {"StartU": 0, "StartV": 0, "USize": 0, "VSize": 0, "TextureIndex": 0, "VerticalOffset": 0}})
 
     with Drawing() as draw:
         draw.font = fontFile
-        draw.font_size = 40
+        draw.font_size = 64
         draw.fill_color = Color("white")
         for c in charList:
             fm = draw.get_font_metrics(text=c, image=newFontDds)
             w = int(fm.text_width)
-            h = int(fm.text_height)
+            h = int(64)
 
             if (x+w) > size[0]:
                 x = 0
                 y += h
 
             if ord(c) <=len(charTbl):
-                charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}}
+                charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y-48, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}}
             else:
-                charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}})
+                charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y-48, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}})
             draw.text(x, y, c)
             x = x + w
 
@@ -73,17 +73,18 @@ def create(inFile, fontFile):
 
     fontR = getFileReader(inFile)
     reader = fontR["reader"]
+    reader.seek(0)
     fHeader = reader.readBytes(20)
     
     reader.seek(fontR["offsets"]["charTableEnd"])
-    fFontData1 = reader.readBytes(fontR["offsets"]["charList"] - fontR["offsets"]["charTableEnd"])
+    fFontData1 = reader.readBytes(160)
 
-    reader.seek(fontR["offsets"]["charListEnd"])
-    fFontData2 = reader.readBytes(fontR["offsets"]["charNum"][1] - fontR["offsets"]["charListEnd"])
+    reader.seek(fontR["offsets"]["fontData"])
+    fFontData2 = reader.readBytes(fontR["offsets"]["charList"] - fontR["offsets"]["fontData"])
+
 
     charTable = b''
     charTable += struct.pack("I", len(charTbl))
-    charTable += bytes(4)
     for a in charTbl:
         cd = a["CharData"]
         charTable += struct.pack("I", cd["StartU"])
@@ -99,6 +100,7 @@ def create(inFile, fontFile):
     newFontFile += charTable
     newFontFile += fFontData1
 
+
     charlistbytes = struct.pack("i", (len(charList) + 1) * -1)
     charlistbytes += ''.join(charList).encode("utf-16le")
     charlistbytes += bytes(2)
@@ -107,8 +109,16 @@ def create(inFile, fontFile):
     charBytes += bytes(4)
     charBytes += charlistbytes
 
-    newFontFile += charBytes
+    newFontFile += struct.pack("I", len(fFontData2) + len(charBytes) + 28)
+    newFontFile += bytes(4)
+
     newFontFile += fFontData2
+    newFontFile += charBytes
+
+
+    reader.seek(fontR["offsets"]["charListEnd"])
+    fFontData3 = reader.readBytes(fontR["offsets"]["charNum"][1] - fontR["offsets"]["charListEnd"])
+    newFontFile += fFontData3
 
     charIndexBytes = struct.pack("I", len(charTbl))
     for c in charTbl:

@@ -27,7 +27,7 @@ def create(inFile, fontFile, inCharset = ""):
     
     fCharset = fontInfo["Charset"]
     if inCharset != "":
-        fCharset = inCharset
+        fCharset = inCharset + "\u0000"
 
     charList = sorted(list(set([a for a in fCharset])))[1::]
     newFontDds = Image(width=size[0], height=size[1])

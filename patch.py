@@ -89,12 +89,12 @@ def patch(filepath, ph, addDir = None, silent=False):
                     oDiff = offsetDiff
 
                     if b:
-                        if not silent:
-                            print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
                         oDiff = offsetDiff - sizeDiff
 
                     offe = offset + oDiff
 
+                    if not silent:
+                        print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
 
                     pr.seek(offe)
                     pr.writeBytes(writeData)

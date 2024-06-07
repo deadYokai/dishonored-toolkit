@@ -34,7 +34,9 @@ def create(inFile, fontFile, inCharset = ""):
     newFontDds.format = "dds"
     newFontDds.compression = "dxt5"
     x = 0 
-    y = 48
+    sh = int(fontInfo["fontHeight"] + 8)
+    y = sh
+    s = int(fontInfo["fontHeight"] * 1.6)
     charTbl = []
 
     for i in range(0, 256): # range to FF00
@@ -42,21 +44,21 @@ def create(inFile, fontFile, inCharset = ""):
 
     with Drawing() as draw:
         draw.font = fontFile
-        draw.font_size = 64
+        draw.font_size = s
         draw.fill_color = Color("white")
         for c in charList:
             fm = draw.get_font_metrics(text=c, image=newFontDds)
             w = int(fm.text_width)
-            h = int(64)
+            h = int(s)
 
             if (x+w) > size[0]:
                 x = 0
                 y += h
 
             if ord(c) <=len(charTbl):
-                charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y-48, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}}
+                charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y-sh, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}}
             else:
-                charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y-48, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}})
+                charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y-sh, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}})
             draw.text(x, y, c)
             x = x + w
 

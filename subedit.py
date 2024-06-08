@@ -62,13 +62,14 @@ def unpackYaml(fp, outYaml):
             except Exception:
                 print(f"File: {subFile}; String Len: {sLen}", end="\n")
 
+            enc = "utf-8"
+            if isUtf16:
+                enc = "utf-16le"
             try:
-                enc = "utf-8"
-                if isUtf16:
-                    enc = "utf-16"
                 od[name] = text.decode(enc).replace('\x00', '').replace('\n', '').strip()
             except UnicodeDecodeError:
                 od[name] = str(text)
+                pass
 
     with open(outYaml, "w") as yf:
         yaml.dump(od, yf)
@@ -101,7 +102,7 @@ def recPos(r, fs):
     #print(of)
     return of
 
-def getLangText(r, fs):
+def getLangText(r, fs, yod):
     if r.offset() + 8 >=fs:
         return [False, None, "utf-8"]
     langCode = r.readInt32()
@@ -112,18 +113,20 @@ def getLangText(r, fs):
     enc = "latin1"
     if r.readInt32() != 0:
         r.seek(stroff)
-        len = langCode
+        leng = langCode
         skip = True
     else:
-        len = r.readInt32()
-    if len < 0:
+        leng = r.readInt32()
+    if leng < 0:
         enc = "utf-16"
-        len = abs(len) * 2
+        leng = abs(leng) * 2
     stroff = r.offset() - 4
-    text = r.readBytes(len)
+    text = r.readBytes(leng)
+    if len(yod[langCode].decode()) > 3:
+        skip = True
     if re.search("LOC.* MISSING", text.decode(enc)):
         skip = True
-    return [skip, text, enc, stroff, len, langCode]
+    return [skip, text, enc, stroff, leng, langCode]
 
 def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     print("-- Packing text to upk")
@@ -180,7 +183,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 tl = []
                 a = 0
                 while a < count:
-                    t = getLangText(reader, fileSize)
+                    t = getLangText(reader, fileSize, rr["names"])
                     if t[0]:
                         a -= 1
                     elif t[1] is not None:
@@ -199,11 +202,14 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 tlIndex = -1
 
                 for li in tl:
-                    if rr["names"][li[3]].decode().replace("\x00", "") == inp_lang:
+                    ln = rr["names"][li[3]].decode().replace("\x00", "")
+                    if ln == inp_lang:
                         tlIndex = tl.index(li)
                         nameIdx = li[3]
                 sData = reader.readBytes(tl[tlIndex][0])
                 reader.seek(reader.offset() + tl[tlIndex][2] + 8)
+                print(tl)
+                print(fileSize - reader.offset())
                 eData = reader.readBytes(fileSize - reader.offset())
                 newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
                 if not os.path.isdir(os.path.dirname(newFile)):

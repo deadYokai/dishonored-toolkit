@@ -93,7 +93,7 @@ def patch(filepath, ph, addDir = None, silent=False):
 
                     offe = offset + oDiff
 
-                    if not silent:
+                    if (not silent) and b:
                         print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
 
                     pr.seek(offe)

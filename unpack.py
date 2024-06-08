@@ -71,7 +71,7 @@ def unpack(filepath, namefilter=None, split=False, silent=False, dry=False):
     if not dry:
         with open(f"{outDir}/_names.txt", "w") as namesFile:
             for l in rr["names"]:
-                namesFile.write(l.decode("utf-8").replace("\x00", "") + "\n")
+                namesFile.write(l.decode("ISO-8859-1").replace("\x00", "") + "\n")
     return rr
 
 if __name__ == "__main__":

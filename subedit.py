@@ -102,31 +102,39 @@ def recPos(r, fs):
     #print(of)
     return of
 
-def getLangText(r, fs, yod):
-    if r.offset() + 8 >=fs:
-        return [False, None, "utf-8"]
-    langCode = r.readInt32()
-    if langCode == 0:
-        langCode = r.readInt32()
-    stroff = r.offset()
-    skip = False
-    enc = "latin1"
-    if r.readInt32() != 0:
-        r.seek(stroff)
-        leng = langCode
-        skip = True
+def getLangText(r, names):
+    iS = False
+    i = r.readInt32()
+    iOff = r.offset()
+    if i == 31:
+        while i == 31:
+            r.readBytes(i)
+            iOff = r.offset()
+            i = r.readUInt32()
+    if i < 0:
+        iS = True
+        n = "SOME" # just a dummy name in len 4, to skip some debug text
     else:
-        leng = r.readInt32()
-    if leng < 0:
-        enc = "utf-16"
-        leng = abs(leng) * 2
-    stroff = r.offset() - 4
-    text = r.readBytes(leng)
-    if len(yod[langCode].decode()) > 3:
-        skip = True
-    if re.search("LOC.* MISSING", text.decode(enc)):
-        skip = True
-    return [skip, text, enc, stroff, leng, langCode]
+        print(i)
+        n = names[i].decode("latin1")
+    if len(n) == 4:
+        stroff = r.offset()
+        size = i
+        if not iS:
+            r.readInt32()
+            size = r.readInt32()
+        enc = "ISO-8859-1"
+        if size < 0:
+            enc = "utf-16le"
+            size = size * -2
+        text = r.readBytes(size)
+        if n == "SOME": # don't return debug text and find actual Lang
+            return getLangText(r, names)
+        return [text, enc, stroff, size, n]
+    else:
+        r.seek(iOff)
+        r.readBytes(i)
+        return getLangText(r, names)
 
 def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     print("-- Packing text to upk")
@@ -182,47 +190,43 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 count = reader.readUInt32()
                 tl = []
                 a = 0
+                print(subFile)
                 while a < count:
-                    t = getLangText(reader, fileSize, rr["names"])
-                    if t[0]:
-                        a -= 1
-                    elif t[1] is not None:
-                        tl.append([t[3], t[1].decode(t[2]), t[4], t[5]])
-                        a += 1
-                    else:
-                        break
+                    t = getLangText(reader, rr["names"])
+                    tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
+                    a += 1
                 if tl == []:
                     continue
-                pStr = yod[name]
-                eStr = pStr.encode("utf-16le")
-                lStr = len(pStr) + 1
-                lStr = lStr * -1
-                eStr += b"\x00\x00"
-                reader.seek(0)
-                tlIndex = -1
-
-                for li in tl:
-                    ln = rr["names"][li[3]].decode().replace("\x00", "")
-                    if ln == inp_lang:
-                        tlIndex = tl.index(li)
-                        nameIdx = li[3]
-                sData = reader.readBytes(tl[tlIndex][0])
-                reader.seek(reader.offset() + tl[tlIndex][2] + 8)
                 print(tl)
-                print(fileSize - reader.offset())
-                eData = reader.readBytes(fileSize - reader.offset())
-                newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
-                if not os.path.isdir(os.path.dirname(newFile)):
-                    os.makedirs(os.path.dirname(newFile), exist_ok=True)
-            
-                with open(newFile, "wb") as modded:
-                    r = BinaryStream(modded)
-                    r.writeBytes(sData)
-                    r.writeInt32(lStr)
-                    r.writeBytes(eStr)
-                    r.writeInt32(0)
-                    r.writeBytes(eData)
-
+            #     pStr = yod[name]
+            #     eStr = pStr.encode("utf-16le")
+            #     lStr = len(pStr) + 1
+            #     lStr = lStr * -1
+            #     eStr += b"\x00\x00"
+            #     reader.seek(0)
+            #     tlIndex = -1
+            #
+            #     for li in tl:
+            #         ln = rr["names"][li[3]].decode().replace("\x00", "")
+            #         if ln == inp_lang:
+            #             tlIndex = tl.index(li)
+            #             nameIdx = li[3]
+            #             break
+            #     sData = reader.readBytes(tl[tlIndex][0])
+            #     reader.seek(reader.offset() + tl[tlIndex][2] + 8)
+            #     eData = reader.readBytes(fileSize - reader.offset())
+            #     newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
+            #     if not os.path.isdir(os.path.dirname(newFile)):
+            #         os.makedirs(os.path.dirname(newFile), exist_ok=True)
+            # 
+            #     with open(newFile, "wb") as modded:
+            #         r = BinaryStream(modded)
+            #         r.writeBytes(sData)
+            #         r.writeInt32(lStr)
+            #         r.writeBytes(eStr)
+            #         r.writeInt32(0)
+            #         r.writeBytes(eData)
+    return
     patch(fp, False, addDir=upkName, silent=True)
 
     with open(str(fp) + "_patched", "rb+") as pf:

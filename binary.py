@@ -93,8 +93,11 @@ class BinaryStream:
     def offset(self):
         return self.base_stream.tell()
 
-    def seek(self, value):
-        self.base_stream.seek(value)
+    def seek(self, value, val2 = None):
+        if val2 is None:
+            self.base_stream.seek(value)
+        else:
+            self.base_stream.seek(value, val2)
 
     def pack(self, fmt, data):
         return self.writeBytes(pack(fmt, data))

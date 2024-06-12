@@ -74,7 +74,8 @@ def unpackYaml(fp, outYaml):
     with open(outYaml, "w") as yf:
         yaml.dump(od, yf)
 
-def recPos(r, fs):
+def recPos(r, fs, names):
+    noneIndex = names.index(b'None\x00')
     if r.offset() + 8 >=fs:
         return False
 
@@ -103,7 +104,7 @@ def recPos(r, fs):
     r.readInt32()
     noneByteFind = r.readInt32()
     f = False
-    while (noneByteFind != 6380) and (f == False):
+    while (noneByteFind != noneIndex) and (f == False):
         r.seek(r.offset() - 1)
         pbyte = r.readByte()
         if pbyte != b'\x01':
@@ -194,7 +195,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     break
 
                 reader.readBytes(16)
-                rp = recPos(reader, fileSize)
+                rp = recPos(reader, fileSize, rr["names"])
                 if not rp:
                     continue
                 reader.seek(rp + 8)

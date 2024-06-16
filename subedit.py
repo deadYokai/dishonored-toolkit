@@ -107,10 +107,10 @@ def recPos(r, fs, names):
     while (noneByteFind != noneIndex) and (f == False):
         r.seek(r.offset() - 1)
         pbyte = r.readByte()
-        if pbyte != b'\x01':
+        if pbyte == b'\x00':
             f = True
         noneByteFind = r.readInt32()
-        
+ 
     of = r.offset() - 4
     return of
 
@@ -118,17 +118,44 @@ def getLangText(r, names):
     iS = False
     i = r.readInt32()
     iOff = r.offset()
-    if i == 31:
-        while i == 31:
-            r.readBytes(i)
+    if i == 0:
+        while i == 0:
+            i = r.readInt32()
             iOff = r.offset()
-            i = r.readUInt32()
+    k = r.readInt32()
+    r.seek(iOff)
+    if k != 0:
+        while k != 0:
+            ll = i
+            if i < 0:
+                ll = i * -2
+            r.readBytes(ll)
+            iOff = r.offset()
+            i = r.readInt32()
+            kk = r.offset()
+            k = r.readInt32()
+            r.seek(kk)
     nameInt = i
     if i < 0:
         iS = True
         n = "SOME" # just a dummy name in len 4, to skip some debug text
     else:
-        n = names[i].decode("latin1")
+        try:
+            n = names[i].decode("latin1")
+        except:
+            print("----- Oops")
+            print(f"Position: {r.offset()}")
+            print(f"Position HEX: {hex(r.offset())}")
+            print(f"Int position: {iOff}")
+            print(f"Int position HEX: {hex(iOff)}")
+            print(f"Int value: {i}")
+            print(f"Int value HEX: {hex(i)}")
+            t = r.offset()
+            print(f"Next 20 bytes: {r.readBytes(20)}")
+            r.seek(t - 20)
+            print(f"Prev 20 bytes: {r.readBytes(20)}")
+            print("-----")
+            raise
     if len(n) == 4:
         stroff = r.offset()
         size = i
@@ -193,7 +220,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     s.decode(enc)
                 except:
                     break
-
+                #print(subFile)
                 reader.readBytes(16)
                 rp = recPos(reader, fileSize, rr["names"])
                 if not rp:

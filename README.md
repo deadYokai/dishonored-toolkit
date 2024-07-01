@@ -28,7 +28,6 @@ Therefore, I am posting this project here in the hope that it will be useful to 
 * [PyYAML](https://pypi.org/project/PyYAML/)
 * [cchardet](https://pypi.org/project/cchardet/)
 * [Wand](https://pypi.org/project/Wand/) (image manipulation)
-* [FontForge](https://fontforge.org) (font manipulation)
 
 ## Usage
 
@@ -106,9 +105,36 @@ Example: `python3 patch.py ../L_Tower_Script.upk`
     ```
     `charset` - optional, if not specified uses charset from .Font
 
-#### ___
+#### Subtitles
 
-I will write something more here
+- Export to yaml (from `INT` language)
+    ```bash
+    python3 subedit.py <upkfile> --output out.yaml
+    ```
+- Import to UPK
+    ```bash
+    python3 subedit.py <upkfile> --input in.yaml --langCode <LANG> --langReplace <LANG>
+	```
+	- `--langCode` - Language to replace (except `INT`, because i'm too lazy :P)
+		- Avaiable codes:
+			```
+			CHN
+			CZE
+			DEU
+			ESM
+			ESN
+			FRA
+			HUN
+			ITA
+			JPN
+			KOR
+			POL
+			RUS
+			SLO
+			```
+	- `--langReplace` (optional) - Change language code to custom (3 chars)
+	
+	**A new `<upkfile>_patched` upk will be created at same dir as `<upkfile>`**
 
 ## Acknowledgements
 

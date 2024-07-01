@@ -126,7 +126,7 @@ def patch(filepath, ph, addDir = None, silent=False):
                                     bt.read(1)
 
                             if bt.tell() > 1024:
-                                raise TypeError("FUCK -- OUT OF RANGE")
+                                raise TypeError("*censored* -- OUT OF RANGE")
 
                         bt.read(16)
                         pr.seek(bt.tell() + offe)

@@ -177,13 +177,19 @@ def getLangText(r, names):
 
 def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     print("-- Packing text to upk")
+        
     if inYaml is None:
         print("Err: input yaml not provided")
         return
-    
+        
     if inp_lang is None:
         print("Err: lang code not provided")
         return
+        
+    isINT = False
+    if inp_lang == "INT":
+        print("WARNING: NOT TESTED FEATURE (using INT)")
+        isINT = True
 
     if not os.path.isfile(inYaml):
         print("Err: input yaml not found")
@@ -212,10 +218,11 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 seekList = [129, 154, 179]
                 for val in seekList:
                     reader.seek(val)
+                    intStrOff = reader.offset()
                     stringLen = reader.readInt32()
                     if stringLen != 0 and stringLen > -5000 and stringLen < 5000:
                         break
-                enc = "utf-8"
+                enc = "ISO-8859-1"
                 if stringLen < 0:
                     enc = "utf-16le"
                     stringLen = abs(stringLen) * 2
@@ -223,38 +230,52 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 try:
                     s.decode(enc)
                 except:
+                    if isINT:
+                        raise Exception("Something wrong happened")
                     break
-                #print(subFile)
-                reader.readBytes(16)
-                rp = recPos(reader, fileSize, rr["names"])
-                if not rp:
-                    continue
-                reader.seek(rp + 8)
-                count = reader.readUInt32()
-                tl = []
-                a = 0
-                while a < count:
-                    t = getLangText(reader, rr["names"])
-                    tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
-                    a += 1
-                if tl == []:
-                    continue
-                pStr = yod[name]
-                eStr = pStr.encode("utf-16le")
-                lStr = len(pStr) + 1
-                lStr = lStr * -1
-                eStr += b"\x00\x00"
-                reader.seek(0)
-                tlIndex = -1
 
-                for li in tl:
-                    ln = rr["names"][li[3]].decode().replace("\x00", "")
-                    if ln == inp_lang:
-                        tlIndex = tl.index(li)
-                        nameIdx = li[3]
-                        break
-                sData = reader.readBytes(tl[tlIndex][0])
-                reader.seek(reader.offset() + tl[tlIndex][2] + 8)
+                if not isINT:
+                    #print(subFile)
+                    reader.readBytes(16)
+                    rp = recPos(reader, fileSize, rr["names"])
+                    if not rp:
+                        continue
+                    reader.seek(rp + 8)
+                    count = reader.readUInt32()
+                    tl = []
+                    a = 0
+                    while a < count:
+                        t = getLangText(reader, rr["names"])
+                        tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
+                        a += 1
+                    if tl == []:
+                        continue
+                    pStr = yod[name]
+                    eStr = pStr.encode("utf-16le")
+                    lStr = len(pStr) + 1
+                    lStr = lStr * -1
+                    eStr += b"\x00\x00"
+                    reader.seek(0)
+                    tlIndex = -1
+    
+                    for li in tl:
+                        ln = rr["names"][li[3]].decode().replace("\x00", "")
+                        if ln == inp_lang:
+                            tlIndex = tl.index(li)
+                            nameIdx = li[3]
+                            break
+                    sData = reader.readBytes(tl[tlIndex][0])
+                    reader.seek(reader.offset() + tl[tlIndex][2] + 8)
+
+                if isINT:
+                    reader.seek(0)
+                    sData = reader.readBytes(intStrOff)
+                    pStr = yod[name]
+                    eStr = pStr.encode("utf-16le")
+                    lStr = len(pStr) + 1
+                    lStr = lStr * -1
+                    eStr += b"\x00\x00"
+                    
                 eData = reader.readBytes(fileSize - reader.offset())
                 newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
                 if not os.path.isdir(os.path.dirname(newFile)):
@@ -269,9 +290,9 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     r.writeBytes(eData)
     patch(fp, False, addDir=upkName, silent=True)
 
-    with open(str(fp) + "_patched", "rb+") as pf:
-        pr = BinaryStream(pf)
-        if (rep_lang is not None) and (rep_lang != inp_lang):
+    if (rep_lang is not None) and (rep_lang != inp_lang):
+        with open(str(fp) + "_patched", "rb+") as pf:
+            pr = BinaryStream(pf)
             pr.seek(rr["offsetList"]["names"][nameIdx])
             pr.writeInt32(len(rep_lang) + 1)
             pr.writeBytes(rep_lang.encode() + b'\x00')

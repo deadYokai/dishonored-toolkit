@@ -180,6 +180,10 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     if inYaml is None:
         print("Err: input yaml not provided")
         return
+    
+    if inp_lang is None:
+        print("Err: lang code not provided")
+        return
 
     if not os.path.isfile(inYaml):
         print("Err: input yaml not found")

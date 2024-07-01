@@ -1,10 +1,13 @@
 import os
 
 from pathlib import Path
-
+import io
+from typing import TypeVar
 from binary import BinaryStream
 import argparse
+import struct
 from upkreader import readerGet
+
 
 
 def patch(filepath, ph, addDir = None, silent=False):
@@ -20,6 +23,7 @@ def patch(filepath, ph, addDir = None, silent=False):
     data = rr["data"]
     outDir = rr["dir"]
     headerSize = rr["headerSize"]
+    rrnames = rr["names"]
 
     dataOff = 0
     dataSize = 0
@@ -106,9 +110,35 @@ def patch(filepath, ph, addDir = None, silent=False):
                     pr.writeInt32(offe)
 
                     if name.split(".")[-1] == "Texture2D":
-                        pr.seek(offe + 281)
+                        bt = io.BytesIO(writeData)
+                        bt.seek(0, os.SEEK_END)
+                        bts = bt.tell()
+                        bt.seek(0)
+                        ff = False
+                        while not ff:
+                            a = struct.unpack("I", bt.read(4))[0]
+                            if a <= len(rrnames):
+                                n = rrnames[a].decode("ISO-8859-1")
+                                if n == "None\x00":
+                                    ff = True
+
+                                if n == "BoolProperty\x00":
+                                    bt.read(1)
+
+                            if bt.tell() > 1024:
+                                raise TypeError("FUCK -- OUT OF RANGE")
+
+                        bt.read(16)
+                        pr.seek(bt.tell() + offe)
                         pr.writeInt32(pr.offset() + 4)
-                        pr.seek(pr.offset() + 16)
+                        first = struct.unpack("I", bt.read(4))[0]
+                        limit = bts + offe
+                        while bt.tell() < bts:
+                            k = struct.unpack("I", bt.read(4))[0]
+                            if (k < limit) and (k > first):
+                                bt.seek(bt.tell() - 4)
+                                break
+                        pr.seek(bt.tell() + offe)
                         pr.writeInt32(pr.offset() + 4)
 
 

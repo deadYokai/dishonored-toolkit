@@ -74,45 +74,29 @@ def unpackYaml(fp, outYaml):
     with open(outYaml, "w") as yf:
         yaml.dump(od, yf)
 
-def recPos(r, fs, names):
-    noneIndex = names.index(b'None\x00')
-    if r.offset() + 8 >=fs:
-        return False
+def findElem(reader, names, elementName):
+    startPos = reader.offset()
+    reader.seek(0, os.SEEK_END)
+    fs = reader.offset()
+    reader.seek(startPos)
+    found = -1
+    while reader.offset() < fs-3:
+        e = reader.readUInt32()
+        if e < len(names):
+            name = names[e].decode("ISO-8859-1").replace("\x00", '')
+            if name == "BoolProperty":
+                reader.readByte()
 
-    q = True
-    o = r.offset()
-    p = 0
+            if name == "StrProperty":
+                reader.readInt32()
+                k = reader.readUInt64()
+                size = reader.readInt32()
+                val = reader.readBytes(size)
 
-    while q:
-        if r.offset() + 16 >=fs:
-            q = False
-
-        a = []
-        k = []
-
-        for i in range(3):
-            a.append(r.readInt32())
-            k.append(r.offset())
-
-        r.seek(r.offset() - 11)
-
-        if a == [0, 4, 0]:
-            p = max(k)
-
-    of = p
-    r.seek(of)
-    r.readInt32()
-    noneByteFind = r.readInt32()
-    f = False
-    while (noneByteFind != noneIndex) and (f == False):
-        r.seek(r.offset() - 1)
-        pbyte = r.readByte()
-        if pbyte == b'\x00':
-            f = True
-        noneByteFind = r.readInt32()
- 
-    of = r.offset() - 4
-    return of
+            if name == elementName:
+                found = reader.offset()
+                break
+    return found
 
 def getLangText(r, names):
     iS = False
@@ -141,7 +125,7 @@ def getLangText(r, names):
         n = "SOME" # just a dummy name in len 4, to skip some debug text
     else:
         try:
-            n = names[i].decode("latin1")
+            n = names[i].decode("ISO-8859-1")
         except:
             print("----- Oops")
             print(f"Position: {r.offset()}")
@@ -176,23 +160,23 @@ def getLangText(r, names):
         return getLangText(r, names)
 
 def packYaml(fp, inYaml, inp_lang, rep_lang = None):
-    print("-- Packing text to upk")
-        
+    print("\x1b[6;30;42m-- Subtitle packer --\x1b[0m")   
+
     if inYaml is None:
-        print("Err: input yaml not provided")
+        print("\x1b[6;30;41mErr: input yaml not provided\x1b[0m")
         return
         
     if inp_lang is None:
-        print("Err: lang code not provided")
+        print("\x1b[6;30;41mErr: lang code not provided\x1b[0m")
         return
         
     isINT = False
     if inp_lang == "INT":
-        print("WARNING: NOT TESTED FEATURE (using INT)")
+        print("\x1b[6;30;43mWARNING: NOT TESTED FEATURE (using INT)\x1b[0m")
         isINT = True
 
     if not os.path.isfile(inYaml):
-        print("Err: input yaml not found")
+        print("\x1b[6;30;41mErr: input yaml not found\x1b[0m")
         return
     
     if not os.path.isdir(dir):
@@ -208,40 +192,48 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     rr = unpack(fp, "Blurb", True, True)
     nameIdx = -1
     files = Path(f"{dir}/{upkName}").glob('DisConv_Blurb.*')
+    print("Pathing Blurb files")
     for subFile in files:
         fileSize = os.stat(subFile).st_size
         name = os.path.basename(subFile)
         if name in yod:
             with open(subFile, "r+b") as fileObj:
                 reader = BinaryStream(fileObj)
-                
-                seekList = [129, 154, 179]
-                for val in seekList:
-                    reader.seek(val)
-                    intStrOff = reader.offset()
-                    stringLen = reader.readInt32()
-                    if stringLen != 0 and stringLen > -5000 and stringLen < 5000:
-                        break
+                m_TextPos = findElem(reader, rr["names"], "m_Text")
+                if m_TextPos == -1:
+                    print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")
+                    continue
+                reader.seek(m_TextPos)
+                reader.readInt32()
+                reader.readInt64()
+                intStrOff = reader.offset()
+                intStrLen = reader.readUInt32()
                 enc = "ISO-8859-1"
-                if stringLen < 0:
+                if intStrLen < 0:
                     enc = "utf-16le"
-                    stringLen = abs(stringLen) * 2
-                s = reader.readBytes(stringLen)
+                    intStrLen = intStrLen * -2
+                s = reader.readBytes(intStrLen)
+
                 try:
                     s.decode(enc)
                 except:
                     if isINT:
-                        raise Exception("Something wrong happened")
+                        raise Exception("\x1b[6;30;41mErr: Something wrong happened at INT Lang\x1b[0m")
                     break
-
+                
                 if not isINT:
-                    #print(subFile)
-                    reader.readBytes(16)
-                    rp = recPos(reader, fileSize, rr["names"])
-                    if not rp:
-                        continue
-                    reader.seek(rp + 8)
+                    m_iSpeakerPos = findElem(reader, rr["names"], "m_iSpeaker")
+                    reader.seek(m_iSpeakerPos)
+                    nonePos = findElem(reader, rr["names"], "None")
+                    reader.seek(nonePos)
+                    reader.readInt32()
                     count = reader.readUInt32()
+                    if rr["names"][count] == b'None\x00':
+                        reader.readInt32()
+                        count = reader.readUInt32()
+                    if count == 0:
+                        print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no translateble text")
+                        continue
                     tl = []
                     a = 0
                     while a < count:
@@ -249,7 +241,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                         tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
                         a += 1
                     if tl == []:
-                        continue
+                        raise Exception("\x1b[6;30;41mErr: Something wrong at LangFinder\x1b[0m")
                     pStr = yod[name]
                     eStr = pStr.encode("utf-16le")
                     lStr = len(pStr) + 1
@@ -266,8 +258,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                             break
                     sData = reader.readBytes(tl[tlIndex][0])
                     reader.seek(reader.offset() + tl[tlIndex][2] + 8)
-
-                if isINT:
+                else:
                     reader.seek(0)
                     sData = reader.readBytes(intStrOff)
                     pStr = yod[name]
@@ -275,6 +266,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     lStr = len(pStr) + 1
                     lStr = lStr * -1
                     eStr += b"\x00\x00"
+                    reader.seek(intStrOff + intStrLen + 4)
                     
                 eData = reader.readBytes(fileSize - reader.offset())
                 newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
@@ -286,16 +278,21 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     r.writeBytes(sData)
                     r.writeInt32(lStr)
                     r.writeBytes(eStr)
-                    r.writeInt32(0)
+                    if not isINT:
+                        r.writeInt32(0)
                     r.writeBytes(eData)
+    print(f"Packing {upkName}.upk")
     patch(fp, False, addDir=upkName, silent=True)
 
     if (rep_lang is not None) and (rep_lang != inp_lang):
         with open(str(fp) + "_patched", "rb+") as pf:
             pr = BinaryStream(pf)
+            print(f"Replacing '{inp_lang}' to '{rep_lang}'")
             pr.seek(rr["offsetList"]["names"][nameIdx])
             pr.writeInt32(len(rep_lang) + 1)
             pr.writeBytes(rep_lang.encode() + b'\x00')
+
+    print("\x1b[6;30;42m-- DONE --\x1b[0m")   
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dishonored subtitle modifier", epilog="With love <3")

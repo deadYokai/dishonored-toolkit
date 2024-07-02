@@ -134,11 +134,11 @@ def getLangText(r, names):
             print("-----")
             raise
     if len(n) == 4:
-        stroff = r.offset()
         size = i
         if not iS:
             r.readInt32()
             size = r.readInt32()
+        stroff = r.offset()-4
         enc = "ISO-8859-1"
         if size < 0:
             enc = "utf-16le"
@@ -216,7 +216,9 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     break
                 
                 if not isINT:
-                    findElem(reader, rr["names"], "m_iSpeaker")
+                    m_iSpeakerPos = findElem(reader, rr["names"], "m_iSpeaker")
+                    if m_iSpeakerPos == -1:
+                        raise Exception(f"\x1b[6;30;41mErr:\x1b[0m m_iSpeaker not found in {os.path.basename(subFile)}")
                     findElem(reader, rr["names"], "IntProperty")
                     findElem(reader, rr["names"], "None")
                     reader.readInt32()
@@ -225,6 +227,8 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                         reader.readInt32()
                         count = reader.readUInt32()
                     if count == 0:
+                        if fileSize != reader.offset():
+                            raise
                         print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no translateble text")
                         continue
                     tl = []
@@ -238,17 +242,18 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     lStr = len(pStr) + 1
                     lStr = lStr * -1
                     eStr += b"\x00\x00"
-                    reader.seek(0)
+                    
                     tlIndex = -1
     
-                    for li in tl:
-                        ln = rr["names"][li[3]].decode().replace("\x00", "")
+                    for i in range(len(tl)):
+                        ln = rr["names"][tl[i][3]].decode().replace("\x00", "")
                         if ln == inp_lang:
-                            tlIndex = tl.index(li)
-                            nameIdx = li[3]
+                            tlIndex = i
+                            nameIdx = tl[i][3]
                             break
+                    reader.seek(0)
                     sData = reader.readBytes(tl[tlIndex][0])
-                    reader.seek(reader.offset() + tl[tlIndex][2] + 8)
+                    reader.seek(tl[tlIndex][0] + tl[tlIndex][2] + 4)
                 else:
                     reader.seek(0)
                     sData = reader.readBytes(intStrOff)
@@ -269,8 +274,6 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     r.writeBytes(sData)
                     r.writeInt32(lStr)
                     r.writeBytes(eStr)
-                    if not isINT:
-                        r.writeInt32(0)
                     r.writeBytes(eData)
     print(f"Packing {upkName}.upk")
     patch(fp, False, addDir=upkName, silent=True)

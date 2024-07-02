@@ -14,66 +14,6 @@ import operator
 
 dir = "_DYextracted"
 
-def unpackYaml(fp, outYaml):
-    print("-- Extracting text from upk")
-    if outYaml is None:
-        print("Err: output yaml not provided")
-        return
-
-    upkFile = str(fp)
-
-    if not os.path.isdir(dir):
-        os.mkdir(dir)
-
-    if os.path.isfile(outYaml):
-        os.remove(outYaml)
-
-    upkName = os.path.basename(str(fp)).split('.')[0]
-
-    print(f"Unpacking {upkName}.upk")
-    rr = unpack(fp, "Blurb", True, True)
-
-    files = Path(f"{dir}/{upkName}").glob('DisConv_Blurb.*')
-
-    od = dict()
-
-    for subFile in files:
-        name = os.path.basename(subFile)
-        print(f"Processing: {name}", end='\r')
-        with open(subFile, "r+b") as fileObj:
-            reader = BinaryStream(fileObj)
-
-            seekList = [129, 154, 179]
-
-            reader.seek(36)
-
-            for val in seekList:
-                reader.seek(val)
-                sLen = reader.readInt32()
-                if sLen != 0 and sLen > -5000 and sLen < 5000:
-                    break
-
-            isUtf16 = False
-            try:
-                if sLen < 0:
-                    isUtf16 = True
-                    sLen = abs(sLen) * 2
-                text = reader.readBytes(sLen)
-            except Exception:
-                print(f"File: {subFile}; String Len: {sLen}", end="\n")
-
-            enc = "utf-8"
-            if isUtf16:
-                enc = "utf-16le"
-            try:
-                od[name] = text.decode(enc).replace('\x00', '').replace('\n', '').strip()
-            except UnicodeDecodeError:
-                od[name] = str(text)
-                pass
-
-    with open(outYaml, "w") as yf:
-        yaml.dump(od, yf)
-
 def findElem(reader, names, elementName):
     startPos = reader.offset()
     reader.seek(0, os.SEEK_END)
@@ -97,6 +37,59 @@ def findElem(reader, names, elementName):
                 found = reader.offset()
                 break
     return found
+
+def unpackYaml(fp, outYaml):
+    print("\x1b[6;30;42m-- Subtitle extractor --\x1b[0m") 
+
+    if outYaml is None:
+        print("\x1b[6;30;41mErr: output yaml not provided\x1b[0m")
+        return
+
+    if not os.path.isdir(dir):
+        os.mkdir(dir)
+
+    if os.path.isfile(outYaml):
+        os.remove(outYaml)
+
+    upkName = os.path.basename(str(fp)).split('.')[0]
+
+    print(f"Unpacking {upkName}.upk")
+    rr = unpack(fp, "Blurb", True, True)
+
+    files = Path(f"{dir}/{upkName}").glob('DisConv_Blurb.*')
+
+    od = dict()
+
+    for subFile in files:
+        name = os.path.basename(subFile)
+        print(f"Extracting: {name}", end='\r')
+        with open(subFile, "r+b") as fileObj:
+            reader = BinaryStream(fileObj)
+
+            m_TextPos = findElem(reader, rr["names"], "m_Text")
+            if m_TextPos == -1:
+                print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")
+                continue
+            reader.seek(m_TextPos)
+            reader.readInt32()
+            reader.readInt64()
+            reader.readInt64()
+            intStrLen = reader.readInt32()
+            enc = "ISO-8859-1"
+            if intStrLen < 0:
+                enc = "utf-16le"
+                intStrLen = intStrLen * -2
+            s = reader.readBytes(intStrLen)
+
+            try:
+                od[name] = s.decode(enc).replace('\x00', '').replace('\n', '').strip()
+            except:
+                print(f"File: {subFile}; String Len: {intStrLen}", end="\n")
+
+    with open(outYaml, "w") as yf:
+        yaml.dump(od, yf)
+    
+    print("\n\x1b[6;30;42m-- Done --\x1b[0m")
 
 def getLangText(r, names):
     iS = False
@@ -160,7 +153,7 @@ def getLangText(r, names):
         return getLangText(r, names)
 
 def packYaml(fp, inYaml, inp_lang, rep_lang = None):
-    print("\x1b[6;30;42m-- Subtitle packer --\x1b[0m")   
+    print("\x1b[6;30;42m-- Subtitle packer --\x1b[0m") 
 
     if inYaml is None:
         print("\x1b[6;30;41mErr: input yaml not provided\x1b[0m")
@@ -208,7 +201,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 reader.readInt64()
                 reader.readInt64()
                 intStrOff = reader.offset()
-                intStrLen = reader.readUInt32()
+                intStrLen = reader.readInt32()
                 enc = "ISO-8859-1"
                 if intStrLen < 0:
                     enc = "utf-16le"

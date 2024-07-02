@@ -86,7 +86,7 @@ def unpackYaml(fp, outYaml):
             except:
                 print(f"File: {subFile}; String Len: {intStrLen}", end="\n")
 
-    with open(outYaml, "w") as yf:
+    with open(outYaml, "w", encoding="utf8") as yf:
         yaml.dump(od, yf)
     
     print("\n\x1b[6;30;42m-- Done --\x1b[0m")
@@ -177,7 +177,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     
     yod = dict()
 
-    with open(inYaml, "r") as yf:
+    with open(inYaml, "r", encoding="utf8") as yf:
         yod = yaml.load(yf, Loader=yaml.SafeLoader)
 
     upkName = os.path.basename(str(fp)).split('.')[0]

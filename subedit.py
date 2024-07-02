@@ -206,6 +206,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 reader.seek(m_TextPos)
                 reader.readInt32()
                 reader.readInt64()
+                reader.readInt64()
                 intStrOff = reader.offset()
                 intStrLen = reader.readUInt32()
                 enc = "ISO-8859-1"
@@ -215,17 +216,16 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 s = reader.readBytes(intStrLen)
 
                 try:
-                    s.decode(enc)
+                    s = s.decode(enc)
                 except:
                     if isINT:
                         raise Exception("\x1b[6;30;41mErr: Something wrong happened at INT Lang\x1b[0m")
                     break
                 
                 if not isINT:
-                    m_iSpeakerPos = findElem(reader, rr["names"], "m_iSpeaker")
-                    reader.seek(m_iSpeakerPos)
-                    nonePos = findElem(reader, rr["names"], "None")
-                    reader.seek(nonePos)
+                    findElem(reader, rr["names"], "m_iSpeaker")
+                    findElem(reader, rr["names"], "IntProperty")
+                    findElem(reader, rr["names"], "None")
                     reader.readInt32()
                     count = reader.readUInt32()
                     if rr["names"][count] == b'None\x00':

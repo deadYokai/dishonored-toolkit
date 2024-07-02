@@ -87,7 +87,7 @@ def unpackYaml(fp, outYaml):
                 print(f"File: {subFile}; String Len: {intStrLen}", end="\n")
 
     with open(outYaml, "w", encoding="utf8") as yf:
-        yaml.dump(od, yf)
+        yaml.dump(od, yf, allow_unicode=True)
     
     print("\n\x1b[6;30;42m-- Done --\x1b[0m")
 
@@ -228,11 +228,9 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                         print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no translateble text")
                         continue
                     tl = []
-                    a = 0
-                    while a < count:
+                    for a in range(count):
                         t = getLangText(reader, rr["names"])
                         tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
-                        a += 1
                     if tl == []:
                         raise Exception("\x1b[6;30;41mErr: Something wrong at LangFinder\x1b[0m")
                     pStr = yod[name]

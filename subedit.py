@@ -54,9 +54,9 @@ def unpackYaml(fp, outYaml):
     upkName = os.path.basename(str(fp)).split('.')[0]
 
     print(f"Unpacking {upkName}.upk")
-    rr = unpack(fp, "Blurb", True, True)
+    rr = unpack(fp, "DisConv", True, True)
 
-    files = Path(f"{dir}/{upkName}").glob('DisConv_Blurb.*')
+    files = Path(f"{dir}/{upkName}").glob('DisConv_.*')
 
     od = dict()
 
@@ -65,6 +65,13 @@ def unpackYaml(fp, outYaml):
         print(f"Extracting: {name}", end='\r')
         with open(subFile, "r+b") as fileObj:
             reader = BinaryStream(fileObj)
+
+            dataType = reader.readUInt32()
+            if dataType == 0:
+                dataType = reader.readUInt32()
+
+            if rr["names"][dataType] != b"m_iBlurbGUID\x00":
+                raise TypeError("I so sowwy, i support only Blurbs (╥﹏╥)")
 
             m_TextPos = findElem(reader, rr["names"], "m_Text")
             if m_TextPos == -1:
@@ -182,7 +189,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
 
     upkName = os.path.basename(str(fp)).split('.')[0]
     print(f"Unpacking {upkName}.upk")
-    rr = unpack(fp, "Blurb", True, True)
+    rr = unpack(fp, "DisConv", True, True)
     nameIdx = -1
     files = Path(f"{dir}/{upkName}").glob('DisConv_Blurb.*')
     print("Pathing Blurb files")

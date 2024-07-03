@@ -217,6 +217,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 if dataType == 0:
                     dataType = reader.readUInt32()
                 if rr["names"][dataType] == b"m_iBlurbGUID\x00":
+                    continue
                     m_TextPos = findElem(reader, rr["names"], "m_Text")
                     if m_TextPos == -1:
                         print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")
@@ -300,6 +301,109 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                         r.writeInt32(lStr)
                         r.writeBytes(eStr)
                         r.writeBytes(eData)
+
+
+                elif rr["names"][dataType] == b"m_Choices_Static\x00":
+                    findElem(reader, rr["names"], "ArrayProperty")
+                    reader.readInt32()
+                    reader.readUInt64() # some unknown???
+                    arrLen = reader.readUInt32()
+                    text = []
+                    for i in range(arrLen):
+                        if rr["names"][reader.readUInt32()] == b"m_ChoiceText\x00":
+                            reader.readBytes(20)
+                            intStrOff = reader.offset()
+                            intStrLen = reader.readInt32()
+                            enc = "ISO-8859-1"
+                            if intStrLen < 0:
+                                enc = "utf-16le"
+                                intStrLen = intStrLen * -2
+                            intStr = reader.readBytes(intStrLen)
+                            text.append([intStrOff, intStrLen, intStr])
+                            reader.readBytes(8)
+
+                    fileData = b''
+                    if not isINT:
+                        m_iSpeakerPos = findElem(reader, rr["names"], "m_pOwner")
+                        if m_iSpeakerPos == -1:
+                            raise Exception(f"\x1b[6;30;41mErr:\x1b[0m m_pOwner not found in {os.path.basename(subFile)}")
+                        findElem(reader, rr["names"], "ObjectProperty")
+                        findElem(reader, rr["names"], "None")
+                        reader.readInt32()
+                        langs = []
+                        for i in range(arrLen):
+                            count = reader.readUInt32()
+                            if rr["names"][count] == b'None\x00':
+                                reader.readInt32()
+                                count = reader.readUInt32()
+                            if count == 0:
+                                if fileSize != reader.offset():
+                                    raise
+                                print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no translateble text")
+                                continue
+                            tl = []
+                            for a in range(count):
+                                t = getLangText(reader, rr["names"])
+                                tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
+                            if tl == []:
+                                raise Exception("\x1b[6;30;41mErr: Something wrong at LangFinder\x1b[0m")
+                            langs.append(tl)
+                        for q in range(len(langs)):
+                            pStr = yod[name][q]
+                            eStr = pStr.encode("utf-16le")
+                            lStr = len(pStr) + 1
+                            lStr = lStr * -1
+                            eStr += b"\x00\x00"
+                            tlIndex = -1
+                            tl = langs[q]
+                            for i in range(len(tl)):
+                                ln = rr["names"][tl[i][3]].decode().replace("\x00", "")
+                                if ln == inp_lang:
+                                    tlIndex = i
+                                    nameIdx = tl[i][3]
+                                    break
+                            if q == 0:
+                                reader.seek(0)
+                                fileData += reader.readBytes(tl[tlIndex][0]) # from start file
+                            
+                            reader.seek(tl[tlIndex][0] + tl[tlIndex][2] + 4) # Offset + Size + Int32 string len
+                            if q < len(langs) - 1:
+                                eDataSize = langs[q+1][tlIndex][0] - reader.offset()
+                            else:
+                                eDataSize = fileSize - reader.offset()
+
+                            fileData += struct.pack("i", lStr) + eStr
+                            fileData += reader.readBytes(eDataSize)
+                    
+                    else:
+                        for q in range(len(text)):
+                            pStr = yod[name][q]
+                            eStr = pStr.encode("utf-16le")
+                            lStr = len(pStr) + 1
+                            lStr = lStr * -1
+                            eStr += b"\x00\x00"
+
+                            if q == 0:
+                                reader.seek(0)
+                                fileData += reader.readBytes(text[q][0])
+
+                            reader.seek(text[q][0] + text[q][1] + 4)
+
+                            if q < len(text) - 1:
+                                eDataSize = text[q+1][0] - reader.offset()
+                            else:
+                                eDataSize = fileSize - reader.offset()
+                            
+                            fileData += struct.pack("i", lStr) + eStr
+                            fileData += reader.readBytes(eDataSize)
+
+                    newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
+                    if not os.path.isdir(os.path.dirname(newFile)):
+                        os.makedirs(os.path.dirname(newFile), exist_ok=True)
+
+                    with open(newFile, "wb") as modded:
+                        modded.write(fileData)
+
     print(f"Packing {upkName}.upk")
     patch(fp, False, addDir=upkName, silent=True)
 

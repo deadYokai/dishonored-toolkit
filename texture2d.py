@@ -26,7 +26,11 @@ def process(in_file, out_dds = None):
         r.seek(r.offset() + 8)
         pixFmt = r.readInt32()
 
-        r.readBytes(145)
+        rb = r.readInt32()
+        while names[rb] != "None":
+            rb = r.readInt32()
+
+        r.readBytes(33)
         bl = r.offset()
         bytesLen = r.readInt32()
         r.readBytes(12)
@@ -75,6 +79,7 @@ def process(in_file, out_dds = None):
                 oi.compression = pixFmtName.lower()
                 if pixFmtName == "RGBA":
                     oi.compression = 'no'
+                print(pixFmtName)
                 oi.save(filename=out_dds)
 
             with open(out_dds, "rb") as dds:

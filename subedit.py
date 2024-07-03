@@ -56,42 +56,38 @@ def unpackYaml(fp, outYaml):
     print(f"Unpacking {upkName}.upk")
     rr = unpack(fp, "DisConv", True, True)
 
-    files = Path(f"{dir}/{upkName}").glob('DisConv_.*')
+    files = Path(f"{dir}/{upkName}").glob('DisConv_*')
 
     od = dict()
 
     for subFile in files:
         name = os.path.basename(subFile)
-        print(f"Extracting: {name}", end='\r')
         with open(subFile, "r+b") as fileObj:
             reader = BinaryStream(fileObj)
 
             dataType = reader.readUInt32()
             if dataType == 0:
                 dataType = reader.readUInt32()
+            if rr["names"][dataType] == b"m_iBlurbGUID\x00":
+                m_TextPos = findElem(reader, rr["names"], "m_Text")
+                if m_TextPos == -1:
+                    print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")
+                    continue
+                reader.seek(m_TextPos)
+                reader.readInt32()
+                reader.readInt64()
+                reader.readInt64()
+                intStrLen = reader.readInt32()
+                enc = "ISO-8859-1"
+                if intStrLen < 0:
+                    enc = "utf-16le"
+                    intStrLen = intStrLen * -2
+                s = reader.readBytes(intStrLen)
 
-            if rr["names"][dataType] != b"m_iBlurbGUID\x00":
-                raise TypeError("I so sowwy, i support only Blurbs (╥﹏╥)")
-
-            m_TextPos = findElem(reader, rr["names"], "m_Text")
-            if m_TextPos == -1:
-                print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")
-                continue
-            reader.seek(m_TextPos)
-            reader.readInt32()
-            reader.readInt64()
-            reader.readInt64()
-            intStrLen = reader.readInt32()
-            enc = "ISO-8859-1"
-            if intStrLen < 0:
-                enc = "utf-16le"
-                intStrLen = intStrLen * -2
-            s = reader.readBytes(intStrLen)
-
-            try:
-                od[name] = s.decode(enc).replace('\x00', '').replace('\n', '').strip()
-            except:
-                print(f"File: {subFile}; String Len: {intStrLen}", end="\n")
+                try:
+                    od[name] = s.decode(enc).replace('\x00', '').replace('\n', '').strip()
+                except:
+                    print(f"File: {subFile}; String Len: {intStrLen}", end="\n")
 
     with open(outYaml, "w", encoding="utf8") as yf:
         yaml.dump(od, yf, allow_unicode=True)
@@ -167,9 +163,8 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
         return
         
     if inp_lang is None:
-        print("\x1b[6;30;41mErr: lang code not provided\x1b[0m")
-        return
-        
+       inp_lang = "INT"
+
     isINT = False
     if inp_lang == "INT":
         print("\x1b[6;30;43mWARNING: NOT TESTED FEATURE (using INT)\x1b[0m")
@@ -191,7 +186,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     print(f"Unpacking {upkName}.upk")
     rr = unpack(fp, "DisConv", True, True)
     nameIdx = -1
-    files = Path(f"{dir}/{upkName}").glob('DisConv_Blurb.*')
+    files = Path(f"{dir}/{upkName}").glob('DisConv_*')
     print("Pathing Blurb files")
     for subFile in files:
         fileSize = os.stat(subFile).st_size
@@ -199,89 +194,93 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
         if name in yod:
             with open(subFile, "r+b") as fileObj:
                 reader = BinaryStream(fileObj)
-                m_TextPos = findElem(reader, rr["names"], "m_Text")
-                if m_TextPos == -1:
-                    print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")
-                    continue
-                reader.seek(m_TextPos)
-                reader.readInt32()
-                reader.readInt64()
-                reader.readInt64()
-                intStrOff = reader.offset()
-                intStrLen = reader.readInt32()
-                enc = "ISO-8859-1"
-                if intStrLen < 0:
-                    enc = "utf-16le"
-                    intStrLen = intStrLen * -2
-                s = reader.readBytes(intStrLen)
-
-                try:
-                    s = s.decode(enc)
-                except:
-                    if isINT:
-                        raise Exception("\x1b[6;30;41mErr: Something wrong happened at INT Lang\x1b[0m")
-                    break
-                
-                if not isINT:
-                    m_iSpeakerPos = findElem(reader, rr["names"], "m_iSpeaker")
-                    if m_iSpeakerPos == -1:
-                        raise Exception(f"\x1b[6;30;41mErr:\x1b[0m m_iSpeaker not found in {os.path.basename(subFile)}")
-                    findElem(reader, rr["names"], "IntProperty")
-                    findElem(reader, rr["names"], "None")
+                dataType = reader.readUInt32()
+                if dataType == 0:
+                    dataType = reader.readUInt32()
+                if rr["names"][dataType] == b"m_iBlurbGUID\x00":
+                    m_TextPos = findElem(reader, rr["names"], "m_Text")
+                    if m_TextPos == -1:
+                        print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")
+                        continue
+                    reader.seek(m_TextPos)
                     reader.readInt32()
-                    count = reader.readUInt32()
-                    if rr["names"][count] == b'None\x00':
+                    reader.readInt64()
+                    reader.readInt64()
+                    intStrOff = reader.offset()
+                    intStrLen = reader.readInt32()
+                    enc = "ISO-8859-1"
+                    if intStrLen < 0:
+                        enc = "utf-16le"
+                        intStrLen = intStrLen * -2
+                    s = reader.readBytes(intStrLen)
+
+                    try:
+                        s = s.decode(enc)
+                    except:
+                        if isINT:
+                            raise Exception("\x1b[6;30;41mErr: Something wrong happened at INT Lang\x1b[0m")
+                        break
+                    
+                    if not isINT:
+                        m_iSpeakerPos = findElem(reader, rr["names"], "m_iSpeaker")
+                        if m_iSpeakerPos == -1:
+                            raise Exception(f"\x1b[6;30;41mErr:\x1b[0m m_iSpeaker not found in {os.path.basename(subFile)}")
+                        findElem(reader, rr["names"], "IntProperty")
+                        findElem(reader, rr["names"], "None")
                         reader.readInt32()
                         count = reader.readUInt32()
-                    if count == 0:
-                        if fileSize != reader.offset():
-                            raise
-                        print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no translateble text")
-                        continue
-                    tl = []
-                    for a in range(count):
-                        t = getLangText(reader, rr["names"])
-                        tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
-                    if tl == []:
-                        raise Exception("\x1b[6;30;41mErr: Something wrong at LangFinder\x1b[0m")
-                    pStr = yod[name]
-                    eStr = pStr.encode("utf-16le")
-                    lStr = len(pStr) + 1
-                    lStr = lStr * -1
-                    eStr += b"\x00\x00"
-                    
-                    tlIndex = -1
-    
-                    for i in range(len(tl)):
-                        ln = rr["names"][tl[i][3]].decode().replace("\x00", "")
-                        if ln == inp_lang:
-                            tlIndex = i
-                            nameIdx = tl[i][3]
-                            break
-                    reader.seek(0)
-                    sData = reader.readBytes(tl[tlIndex][0])
-                    reader.seek(tl[tlIndex][0] + tl[tlIndex][2] + 4)
-                else:
-                    reader.seek(0)
-                    sData = reader.readBytes(intStrOff)
-                    pStr = yod[name]
-                    eStr = pStr.encode("utf-16le")
-                    lStr = len(pStr) + 1
-                    lStr = lStr * -1
-                    eStr += b"\x00\x00"
-                    reader.seek(intStrOff + intStrLen + 4)
-                    
-                eData = reader.readBytes(fileSize - reader.offset())
-                newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
-                if not os.path.isdir(os.path.dirname(newFile)):
-                    os.makedirs(os.path.dirname(newFile), exist_ok=True)
+                        if rr["names"][count] == b'None\x00':
+                            reader.readInt32()
+                            count = reader.readUInt32()
+                        if count == 0:
+                            if fileSize != reader.offset():
+                                raise
+                            print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no translateble text")
+                            continue
+                        tl = []
+                        for a in range(count):
+                            t = getLangText(reader, rr["names"])
+                            tl.append([t[2], t[0].decode(t[1]), t[3], t[4]])
+                        if tl == []:
+                            raise Exception("\x1b[6;30;41mErr: Something wrong at LangFinder\x1b[0m")
+                        pStr = yod[name]
+                        eStr = pStr.encode("utf-16le")
+                        lStr = len(pStr) + 1
+                        lStr = lStr * -1
+                        eStr += b"\x00\x00"
+                        
+                        tlIndex = -1
+        
+                        for i in range(len(tl)):
+                            ln = rr["names"][tl[i][3]].decode().replace("\x00", "")
+                            if ln == inp_lang:
+                                tlIndex = i
+                                nameIdx = tl[i][3]
+                                break
+                        reader.seek(0)
+                        sData = reader.readBytes(tl[tlIndex][0])
+                        reader.seek(tl[tlIndex][0] + tl[tlIndex][2] + 4)
+                    else:
+                        reader.seek(0)
+                        sData = reader.readBytes(intStrOff)
+                        pStr = yod[name]
+                        eStr = pStr.encode("utf-16le")
+                        lStr = len(pStr) + 1
+                        lStr = lStr * -1
+                        eStr += b"\x00\x00"
+                        reader.seek(intStrOff + intStrLen + 4)
+                        
+                    eData = reader.readBytes(fileSize - reader.offset())
+                    newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
+                    if not os.path.isdir(os.path.dirname(newFile)):
+                        os.makedirs(os.path.dirname(newFile), exist_ok=True)
 
-                with open(newFile, "wb") as modded:
-                    r = BinaryStream(modded)
-                    r.writeBytes(sData)
-                    r.writeInt32(lStr)
-                    r.writeBytes(eStr)
-                    r.writeBytes(eData)
+                    with open(newFile, "wb") as modded:
+                        r = BinaryStream(modded)
+                        r.writeBytes(sData)
+                        r.writeInt32(lStr)
+                        r.writeBytes(eStr)
+                        r.writeBytes(eData)
     print(f"Packing {upkName}.upk")
     patch(fp, False, addDir=upkName, silent=True)
 

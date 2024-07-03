@@ -36,10 +36,11 @@ def findElem(reader, names, elementName):
             if name == elementName:
                 found = reader.offset()
                 break
+
     return found
 
 def unpackYaml(fp, outYaml):
-    print("\x1b[6;30;42m-- Subtitle extractor --\x1b[0m") 
+    print("\x1b[6;30;42m-- Subtitle extractor --\x1b[0m")
 
     if outYaml is None:
         print("\x1b[6;30;41mErr: output yaml not provided\x1b[0m")
@@ -88,10 +89,28 @@ def unpackYaml(fp, outYaml):
                     od[name] = s.decode(enc).replace('\x00', '').replace('\n', '').strip()
                 except:
                     print(f"File: {subFile}; String Len: {intStrLen}", end="\n")
-
+            elif rr["names"][dataType] == b"m_Choices_Static\x00":
+                findElem(reader, rr["names"], "ArrayProperty")
+                reader.readInt32()
+                reader.readUInt64() # some unknown???
+                arrLen = reader.readUInt32()
+                text = []
+                for i in range(arrLen):
+                    if rr["names"][reader.readUInt32()] == b"m_ChoiceText\x00":
+                        reader.readBytes(20)
+                        intStrOff = reader.offset()
+                        intStrLen = reader.readInt32()
+                        enc = "ISO-8859-1"
+                        if intStrLen < 0:
+                            enc = "utf-16le"
+                            intStrLen = intStrLen * -2
+                        intStr = reader.readBytes(intStrLen)
+                        text.append(intStr.decode(enc).replace('\x00', '').replace('\n', '').strip())
+                        reader.readBytes(8)
+                od[name] = text
     with open(outYaml, "w", encoding="utf8") as yf:
         yaml.dump(od, yf, allow_unicode=True)
-    
+
     print("\n\x1b[6;30;42m-- Done --\x1b[0m")
 
 def getLangText(r, names):
@@ -156,14 +175,14 @@ def getLangText(r, names):
         return getLangText(r, names)
 
 def packYaml(fp, inYaml, inp_lang, rep_lang = None):
-    print("\x1b[6;30;42m-- Subtitle packer --\x1b[0m") 
+    print("\x1b[6;30;42m-- Subtitle packer --\x1b[0m")
 
     if inYaml is None:
         print("\x1b[6;30;41mErr: input yaml not provided\x1b[0m")
         return
-        
+
     if inp_lang is None:
-       inp_lang = "INT"
+        inp_lang = "INT"
 
     isINT = False
     if inp_lang == "INT":
@@ -173,10 +192,10 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     if not os.path.isfile(inYaml):
         print("\x1b[6;30;41mErr: input yaml not found\x1b[0m")
         return
-    
+
     if not os.path.isdir(dir):
         os.mkdir(dir)
-    
+
     yod = dict()
 
     with open(inYaml, "r", encoding="utf8") as yf:
@@ -220,7 +239,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                         if isINT:
                             raise Exception("\x1b[6;30;41mErr: Something wrong happened at INT Lang\x1b[0m")
                         break
-                    
+
                     if not isINT:
                         m_iSpeakerPos = findElem(reader, rr["names"], "m_iSpeaker")
                         if m_iSpeakerPos == -1:
@@ -248,9 +267,9 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                         lStr = len(pStr) + 1
                         lStr = lStr * -1
                         eStr += b"\x00\x00"
-                        
+
                         tlIndex = -1
-        
+
                         for i in range(len(tl)):
                             ln = rr["names"][tl[i][3]].decode().replace("\x00", "")
                             if ln == inp_lang:
@@ -269,7 +288,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                         lStr = lStr * -1
                         eStr += b"\x00\x00"
                         reader.seek(intStrOff + intStrLen + 4)
-                        
+
                     eData = reader.readBytes(fileSize - reader.offset())
                     newFile = str(subFile).replace("_DYextracted", "_DYpatched") + "_patched"
                     if not os.path.isdir(os.path.dirname(newFile)):
@@ -292,7 +311,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
             pr.writeInt32(len(rep_lang) + 1)
             pr.writeBytes(rep_lang.encode() + b'\x00')
 
-    print("\x1b[6;30;42m-- DONE --\x1b[0m")   
+    print("\x1b[6;30;42m-- DONE --\x1b[0m")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dishonored subtitle modifier", epilog="With love <3")
@@ -308,5 +327,3 @@ if __name__ == "__main__":
         packYaml(fp, args.input, args.langCode, args.langReplace)
     else:
         unpackYaml(fp, args.output)
-
-

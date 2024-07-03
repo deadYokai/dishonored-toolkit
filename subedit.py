@@ -217,7 +217,6 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                 if dataType == 0:
                     dataType = reader.readUInt32()
                 if rr["names"][dataType] == b"m_iBlurbGUID\x00":
-                    continue
                     m_TextPos = findElem(reader, rr["names"], "m_Text")
                     if m_TextPos == -1:
                         print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no text")

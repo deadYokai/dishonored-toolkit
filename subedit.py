@@ -111,7 +111,7 @@ def unpackYaml(fp, outYaml):
     with open(outYaml, "w", encoding="utf8") as yf:
         yaml.dump(od, yf, allow_unicode=True)
 
-    print("\n\x1b[6;30;42m-- Done --\x1b[0m")
+    print("\x1b[6;30;42m-- Done --\x1b[0m")
 
 def getLangText(r, names):
     iS = False
@@ -336,8 +336,13 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                                 reader.readInt32()
                                 count = reader.readUInt32()
                             if count == 0:
+                                o = reader.offset()
                                 if fileSize != reader.offset():
-                                    raise
+                                    diff = fileSize - reader.offset()
+                                    nulDat = reader.readBytes(diff).replace(b'\x00', b'')
+                                    if nulDat != b'':
+                                        raise
+                                reader.seek(o)
                                 print(f"\x1b[6;30;47mNotice:\x1b[0m {os.path.basename(subFile)} has no translateble text")
                                 continue
                             tl = []

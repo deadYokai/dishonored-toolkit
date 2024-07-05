@@ -1,3 +1,4 @@
+import struct
 import sys
 import os
 
@@ -45,7 +46,12 @@ class UpkElements:
             return self.resolveArr()
         if str == "ObjectProperty":
             return self.resolveObj()
+        if str == "FloatProperty":
+            return self.resolveFloat()
 
+    def resolveFloat(self):
+        self.reader.readInt64()
+        return self.reader.readFloat()
 
     def resolveArr(self):
         arrByteLen = self.reader.readInt64() # unknown
@@ -131,14 +137,17 @@ class UpkElements:
                         if stringLen < 0:
                             stringLen = stringLen * -2
                             enc = "UTF-16"
-                        string.append([strOff, self.reader.readBytes(stringLen)])
+                        string.append([strOff, self.reader.readBytes(stringLen).decode(enc)])
                     pointer = self.reader.offset()
                     if self.reader.offset() >= self.fileSize - 4:
                         k = False
                         break
-                    if self.reader.readInt32() != 0:
+                    p = self.reader.readInt64()
+                    if p < len(self.names):
                         k = False
-                        self.reader.seek(pointer)
+                    if p == 0:
+                        pointer += 8
+                    self.reader.seek(pointer)
                 ll[lang] = string
             langs.append({"Count": count, "langs": ll})
         return langs
@@ -153,4 +162,5 @@ if __name__ == "__main__":
             names = nf.read().split("\n")
 
         eClass = UpkElements(names, BinaryStream(f))
+        print(eClass.elements)
         print(eClass.resolveLang(eClass.endOffset))

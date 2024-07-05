@@ -84,6 +84,9 @@ def readerGet(filepath, silent=False, split=False):
         print(f"Cooker version: {cookerVer}")
         print(f"Compression: {ctype}")
 
+    #if ctype == "LZO":
+    #    compressor.unpackLZO(reader)
+    
     if ctype != "None":
         raise Exception("Compressed files not support yet\nPlease use Unreal Package Decompressor")
 
@@ -108,17 +111,17 @@ def readerGet(filepath, silent=False, split=False):
         #     dataChunk = compressor.unpackLZO(reader)
 
 
-    # raise Exception("BREAK")
-
     # create list for NameTable
     reader.seek(nameOffset)
     names = []
     namesOffsets = []
+    decodedNames = []
     for i in range(nameCount):
         namesOffsets.append(reader.offset())
         nameLen = reader.readInt32()
-        names.append(reader.readBytes(nameLen)) # .decode('utf-8').replace('\x00','')
-
+        reader.readBytes(nameLen)
+        names.append(n) # .decode('utf-8').replace('\x00','')
+        decodedNames.append(n.decode("ISO-8859-1").replace('\x00', ''))
         # UNKNOWN DATA
         reader.readInt32()
         reader.readInt32()
@@ -206,7 +209,7 @@ def readerGet(filepath, silent=False, split=False):
 
     data.sort(key=lambda item: item["Offset"])
 
-    return {"reader": reader, "data": data, "imports": imports, "exports": exports, "dir": outDir, "headerSize": headerSize, "names": names, "offsetList": {"names": namesOffsets}}
+    return {"reader": reader, "data": data, "imports": imports, "exports": exports, "dir": outDir, "headerSize": headerSize, "names": names, "dNames": decodedNames, "offsetList": {"names": namesOffsets}}
 
 
 

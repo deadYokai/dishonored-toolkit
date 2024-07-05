@@ -119,7 +119,7 @@ def readerGet(filepath, silent=False, split=False):
     for i in range(nameCount):
         namesOffsets.append(reader.offset())
         nameLen = reader.readInt32()
-        reader.readBytes(nameLen)
+        n = reader.readBytes(nameLen)
         names.append(n) # .decode('utf-8').replace('\x00','')
         decodedNames.append(n.decode("ISO-8859-1").replace('\x00', ''))
         # UNKNOWN DATA

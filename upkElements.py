@@ -12,17 +12,24 @@ class UpkElements:
         self.reader.seek(0, os.SEEK_END)
         self.fileSize = self.reader.offset()
         self.reader.seek(0)
-        self.elements = []
+        self.elements = dict()
         self.genNames()
 
     def getName(self, i):
         n = self.names[i]
         if n == "None":
-            i = self.reader.readInt64()
+            if self.reader.offset() < self.fileSize - 8:
+                i = self.reader.readInt64()
+            else:
+                i = self.reader.readInt32()
+
             if i > len(self.names):
                 return {"name": "None", "type": "None"}
             n = self.names[i]
-        nt = self.names[self.reader.readInt64()] 
+        if self.reader.offset() < self.fileSize - 8:
+            nt = self.names[self.reader.readInt64()] 
+        else:
+            nt = n
         return {"name": n, "type": nt}
 
     def resolve(self, str):
@@ -47,7 +54,6 @@ class UpkElements:
         for i in range(len):
             n = self.getName(self.reader.readInt64())
             arr.append({n["name"]: self.resolve(n["type"])})
-            #reader.readInt64() # None for array end
         return arr
 
     def resolveObj(self):
@@ -89,14 +95,54 @@ class UpkElements:
     def genNames(self):
         self.reader.readBytes(4)
         while self.reader.offset() < self.fileSize:
-            i = self.reader.readInt64()
+            if self.reader.offset() < self.fileSize - 8:
+                i = self.reader.readInt64()
+            else:
+                i = self.reader.readInt32()
+            self.endOffset = self.reader.offset()
             n = self.getName(i)
             name = n["name"]
             nameType = n["type"]
             if nameType == "None":
                 break
-            self.elements.append({"name": name, "type": nameType, "value": self.resolve(nameType)})
-        self.endOffset = self.reader.offset()
+            self.elements[name] = {"type": nameType, "value": self.resolve(nameType)}
+
+    def resolveLang(self, offset):
+        self.reader.seek(offset)
+        lNum = 1
+        langs = []
+        if 'm_Choices_Static' in self.elements:
+            lNum = len(self.elements['m_Choices_Static']['value'])
+        for l in range(lNum):
+            count = self.reader.readUInt32()
+            ll = dict()
+            for i in range(count):
+                langCode = self.reader.readUInt64()
+                lang = self.names[langCode]
+                k = True
+                string = []
+                while k:
+                    stringLen = self.reader.readInt32()
+                    if stringLen == 0:
+                        string.append('')
+                    else:
+                        enc = "ISO-8859-1"
+                        if stringLen < 0:
+                            stringLen = stringLen * -2
+                            enc = "UTF-16"
+                        string.append(self.reader.readBytes(stringLen))
+                    pointer = self.reader.offset()
+                    if self.reader.offset() >= self.fileSize - 4:
+                        k = False
+                        break
+                    if self.reader.readInt32() != 0:
+                        k = False
+                        self.reader.seek(pointer)
+                ll[lang] = string
+            langs.append({"Count": count, "langs": ll})
+        return langs
+
+
 
 if __name__ == "__main__":
     args = sys.argv[1::]
@@ -106,5 +152,4 @@ if __name__ == "__main__":
             names = nf.read().split("\n")
 
         eClass = UpkElements(names, BinaryStream(f))
-        print(eClass.elements)
-        print(eClass.fileSize - eClass.endOffset)
+        print(eClass.resolveLang(eClass.endOffset))

@@ -122,15 +122,16 @@ class UpkElements:
                 k = True
                 string = []
                 while k:
+                    strOff = self.reader.offset()
                     stringLen = self.reader.readInt32()
                     if stringLen == 0:
-                        string.append('')
+                        string.append([strOff, ''])
                     else:
                         enc = "ISO-8859-1"
                         if stringLen < 0:
                             stringLen = stringLen * -2
                             enc = "UTF-16"
-                        string.append(self.reader.readBytes(stringLen))
+                        string.append([strOff, self.reader.readBytes(stringLen)])
                     pointer = self.reader.offset()
                     if self.reader.offset() >= self.fileSize - 4:
                         k = False

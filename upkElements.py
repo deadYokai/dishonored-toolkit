@@ -8,6 +8,7 @@ class UpkElements:
 
     def __init__(self, names, reader):
         self.names = names
+        self.namesCount = len(names)
         self.reader = reader
         self.endOffset = 0
         self.reader.seek(0, os.SEEK_END)
@@ -48,18 +49,28 @@ class UpkElements:
             return self.resolveObj()
         if str == "FloatProperty":
             return self.resolveFloat()
+        if str == "ByteProperty":
+            return self.resolveByte()
+
+    def resolveByte(self):
+        return self.reader.readBytes(8).hex()
 
     def resolveFloat(self):
         self.reader.readInt64()
         return self.reader.readFloat()
 
     def resolveArr(self):
-        arrByteLen = self.reader.readInt64() # unknown
+        self.reader.readInt64() # unknown
         len = self.reader.readUInt32()
         arr = []
         for i in range(len):
-            n = self.getName(self.reader.readInt64())
-            arr.append({n["name"]: self.resolve(n["type"])})
+            iInt = self.reader.readInt64()
+            if (self.namesCount < iInt) or (iInt == 0):
+                self.reader.seek(self.reader.offset() - 8)
+                arr.append(self.reader.readBytes(4).hex())
+            else:
+                n = self.getName(iInt)
+                arr.append({n["name"]: self.resolve(n["type"])})
         return arr
 
     def resolveObj(self):
@@ -109,6 +120,8 @@ class UpkElements:
             n = self.getName(i)
             name = n["name"]
             nameType = n["type"]
+            # print(name)
+            # print(nameType)
             if nameType == "None":
                 break
             self.elements[name] = {"type": nameType, "value": self.resolve(nameType)}
@@ -132,6 +145,8 @@ class UpkElements:
                     stringLen = self.reader.readInt32()
                     if stringLen == 0:
                         string.append([strOff, ''])
+                        k = False
+                        break
                     else:
                         enc = "ISO-8859-1"
                         if stringLen < 0:
@@ -142,11 +157,33 @@ class UpkElements:
                     if self.reader.offset() >= self.fileSize - 4:
                         k = False
                         break
-                    p = self.reader.readInt64()
-                    if p < len(self.names):
+                    
+                    p32 = self.reader.readUInt32()
+                    if p32 != 0:
+                        self.reader.seek(pointer)
+                        pointer += 4
+
+                    p = self.reader.readBytes(4)
+                    p2 = self.reader.readBytes(4)
+                    u32 = struct.unpack("I", p)[0]
+                    u64 = struct.unpack("Q", p + p2)[0]
+
+                    # Just debug strings
+                    print("__")
+                    print(u32)
+                    print(u64)
+                    q = 0
+                    if (u32 == 0) and (u64 != 0):
+                        self.reader.seek(pointer + 4)
+                        u64 = self.reader.readUInt64()
+                        pointer += 4
+                        q = -4
+
+                    if u64 < self.namesCount:
                         k = False
-                    if p == 0:
-                        pointer += 8
+                    
+                    if u64 == 0:
+                        pointer += 8 + q
                     self.reader.seek(pointer)
                 ll[lang] = string
             langs.append({"Count": count, "langs": ll})
@@ -163,4 +200,5 @@ if __name__ == "__main__":
 
         eClass = UpkElements(names, BinaryStream(f))
         print(eClass.elements)
+        print(eClass.endOffset)
         print(eClass.resolveLang(eClass.endOffset))

@@ -117,7 +117,6 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     upkName = os.path.basename(str(fp)).split('.')[0]
     print(f"Unpacking {upkName}.upk")
     rr = unpack(fp, "DisConv", True, True)
-    nameIdx = -1
     files = Path(f"{dir}/{upkName}").glob('DisConv_*')
     print("Pathing Blurb files")
     for subFile in files:
@@ -221,7 +220,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
         with open(str(fp) + "_patched", "rb+") as pf:
             pr = BinaryStream(pf)
             print(f"Replacing '{inp_lang}' to '{rep_lang}'")
-            pr.seek(rr["offsetList"]["names"][nameIdx])
+            pr.seek(rr["offsetList"]["names"][rr["dNames"].index(inp_lang)])
             pr.writeInt32(len(rep_lang) + 1)
             pr.writeBytes(rep_lang.encode() + b'\x00')
 

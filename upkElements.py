@@ -75,8 +75,10 @@ class UpkElements:
 
     def resolveObj(self):
         self.reader.readInt64()
-        someName = self.names[self.reader.readInt32()]
-        return someName
+        objBytes = self.reader.readInt32()
+        if objBytes < self.namesCount:
+            return self.names[objBytes]
+        return objBytes
 
     def resolveStr(self):
         unknown = self.reader.readInt64()
@@ -89,7 +91,7 @@ class UpkElements:
             stringLen = stringLen * -2
             enc = "UTF-16"
         string = self.reader.readBytes(stringLen).decode(enc)
-        return [string, strOff, self.reader.offset()]
+        return [string, strOff, strOff + stringLen + 4]
 
     def resolveInt(self):
         intSize = self.reader.readInt64()
@@ -129,6 +131,8 @@ class UpkElements:
             self.elements[name] = {"type": nameType, "value": self.resolve(nameType)}
 
     def resolveLang(self, offset):
+        if offset >= self.fileSize - 8:
+            return [{"Count": 0, "langs": {}}]
         self.reader.seek(offset)
         lNum = 1
         langs = []
@@ -137,11 +141,14 @@ class UpkElements:
         for l in range(lNum):
             count = self.reader.readUInt32()
             ll = dict()
+            flang = ''
             for i in range(count):
                 langCode = self.reader.readUInt64()
                 if langCode == 0:
                     langCode = self.reader.readUInt64()
                 lang = self.names[langCode]
+                if i == 0:
+                    flang = lang
                 k = True
                 string = []
                 while k:
@@ -169,10 +176,21 @@ class UpkElements:
                         k = False
                         break
                     u32 = struct.unpack("I", p)[0]
+
+                    if u32 == count:
+                        testLang = struct.unpack("I", p2)[0]
+                        if testLang < self.namesCount:
+                            if self.names[testLang] == flang:
+                                k = False
+                                self.reader.seek(self.reader.offset() - 8)
+                                break
                     u64 = struct.unpack("Q", p + p2)[0]
 
                     # Just debug strings
                     # print("__")
+                    # print(self.reader.offset())
+                    # print(lang + "::" + str(langCode))
+                    # print(stringLen)
                     # print(u32)
                     # print(u64)
 

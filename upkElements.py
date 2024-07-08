@@ -137,6 +137,8 @@ class UpkElements:
             ll = dict()
             for i in range(count):
                 langCode = self.reader.readUInt64()
+                if langCode == 0:
+                    langCode = self.reader.readUInt64()
                 lang = self.names[langCode]
                 k = True
                 string = []
@@ -158,20 +160,20 @@ class UpkElements:
                         k = False
                         break
                     
-                    p32 = self.reader.readUInt32()
-                    if p32 != 0:
-                        self.reader.seek(pointer)
-                        pointer += 4
 
                     p = self.reader.readBytes(4)
                     p2 = self.reader.readBytes(4)
+                    if self.fileSize == self.reader.offset():
+                        k = False
+                        break
                     u32 = struct.unpack("I", p)[0]
                     u64 = struct.unpack("Q", p + p2)[0]
 
                     # Just debug strings
-                    print("__")
-                    print(u32)
-                    print(u64)
+                    # print("__")
+                    # print(u32)
+                    # print(u64)
+
                     q = 0
                     if (u32 == 0) and (u64 != 0):
                         self.reader.seek(pointer + 4)

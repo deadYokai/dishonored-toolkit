@@ -109,31 +109,34 @@ Example: `python3 patch.py ../L_Tower_Script.upk`
 
 - Export to yaml (from `INT` language)
     ```bash
-    python3 subedit.py <upkfile> --output out.yaml
+    python3 subedit.py <upkfile> --output out.yaml --langCode <LANG>
     ```
+    - `--langCode` - Language to extract (default `INT`)
 - Import to UPK
     ```bash
     python3 subedit.py <upkfile> --input in.yaml --langCode <LANG> --langReplace <LANG>
 	```
-	- `--langCode` - Language to replace (except `INT`, because i'm too lazy :P)
-		- Avaiable codes:
-			```
-			CHN
-			CZE
-			DEU
-			ESM
-			ESN
-			FRA
-			HUN
-			ITA
-			JPN
-			KOR
-			POL
-			RUS
-			SLO
-			```
-	- `--langReplace` (optional) - Change language code to custom (3 chars)
+	- `--langCode` - Language to replace (default `INT`)
+	- `--langReplace` (optional) - Change language code to custom (3 chars) (don't work with `INT`)
 	
+- Avaiable lang codes (from Dishonored):
+    ```
+    INT
+    CHN
+    CZE
+    DEU
+    ESM
+    ESN
+    FRA
+    HUN
+    ITA
+    JPN
+    KOR
+    POL
+    RUS
+    SLO
+    ```
+
 	**A new `<upkfile>_patched` upk will be created at same dir as `<upkfile>`**
 
 ## Acknowledgements

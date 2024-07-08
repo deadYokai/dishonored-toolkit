@@ -80,6 +80,7 @@ class UpkElements:
 
     def resolveStr(self):
         unknown = self.reader.readInt64()
+        strOff = self.reader.offset()
         stringLen = self.reader.readInt32()
         if stringLen == 0:
             return ''
@@ -87,7 +88,8 @@ class UpkElements:
         if stringLen < 0:
             stringLen = stringLen * -2
             enc = "UTF-16"
-        return self.reader.readBytes(stringLen).decode(enc)
+        string = self.reader.readBytes(stringLen).decode(enc)
+        return [string, strOff, self.reader.offset()]
 
     def resolveInt(self):
         intSize = self.reader.readInt64()

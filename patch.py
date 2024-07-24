@@ -7,8 +7,7 @@ from binary import BinaryStream
 import argparse
 import struct
 from upkreader import readerGet
-
-
+from texture2d import Texture2D
 
 def patch(filepath, ph, addDir = None, silent=False):
     
@@ -23,7 +22,7 @@ def patch(filepath, ph, addDir = None, silent=False):
     data = rr["data"]
     outDir = rr["dir"]
     headerSize = rr["headerSize"]
-    rrnames = rr["names"]
+    rrnames = rr["dnames"]
 
     dataOff = 0
     dataSize = 0
@@ -100,6 +99,22 @@ def patch(filepath, ph, addDir = None, silent=False):
                     if (not silent) and b:
                         print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
 
+                    if name.split(".")[-1] == "Texture2D":
+                        tmpName = ".tmp.upk.data.file." + name
+                        with open(tmpName, "wb") as tf:
+                            tf.write(writeData)
+                        tex2d = Texture2D(tmpName, rrnames)
+                        r = tex2d.reader
+                        mm = tex2d.mipmaps
+                        r.seek(tex2d.firstAddress[0]+4)
+                        r.writeUInt32(offe + r.offset())
+                        for m in mm:
+                            r.seek(m["offset"])
+                            r.writeUInt32(offe + r.offset())
+                        with open(tmpName, "rb") as tf:
+                            writeData = tf.read()
+                        os.remove(tmpName)
+
                     pr.seek(offe)
                     pr.writeBytes(writeData)
 
@@ -109,37 +124,35 @@ def patch(filepath, ph, addDir = None, silent=False):
                     pr.seek(headerOff)
                     pr.writeInt32(offe)
 
-                    if name.split(".")[-1] == "Texture2D":
-                        bt = io.BytesIO(writeData)
-                        bt.seek(0, os.SEEK_END)
-                        bts = bt.tell()
-                        bt.seek(0)
-                        ff = False
-                        while not ff:
-                            a = struct.unpack("I", bt.read(4))[0]
-                            if a <= len(rrnames):
-                                n = rrnames[a].decode("ISO-8859-1")
-                                if n == "None\x00":
-                                    ff = True
-
-                                if n == "BoolProperty\x00":
-                                    bt.read(1)
-
-                            if bt.tell() > 1024:
-                                raise TypeError("*censored* -- OUT OF RANGE")
-
-                        bt.read(16)
-                        pr.seek(bt.tell() + offe)
-                        pr.writeInt32(pr.offset() + 4)
-                        first = struct.unpack("I", bt.read(4))[0]
-                        limit = bts + offe
-                        while bt.tell() < bts:
-                            k = struct.unpack("I", bt.read(4))[0]
-                            if (k < limit) and (k > first):
-                                bt.seek(bt.tell() - 4)
-                                break
-                        pr.seek(bt.tell() + offe)
-                        pr.writeInt32(pr.offset() + 4)
+                        # bt.seek(0, os.SEEK_END)
+                        # bts = bt.tell()
+                        # bt.seek(0)
+                        # ff = False
+                        # while not ff:
+                        #     a = struct.unpack("I", bt.read(4))[0]
+                        #     if a <= len(rrnames):
+                        #         n = rrnames[a].decode("ISO-8859-1")
+                        #         if n == "None\x00":
+                        #             ff = True
+                        #
+                        #         if n == "BoolProperty\x00":
+                        #             bt.read(1)
+                        #
+                        #     if bt.tell() > 1024:
+                        #         raise TypeError("*censored* -- OUT OF RANGE")
+                        #
+                        # bt.read(16)
+                        # pr.seek(bt.tell() + offe)
+                        # pr.writeInt32(pr.offset() + 4)
+                        # first = struct.unpack("I", bt.read(4))[0]
+                        # limit = bts + offe
+                        # while bt.tell() < bts:
+                        #     k = struct.unpack("I", bt.read(4))[0]
+                        #     if (k < limit) and (k > first):
+                        #         bt.seek(bt.tell() - 4)
+                        #         break
+                        # pr.seek(bt.tell() + offe)
+                        # pr.writeInt32(pr.offset() + 4)
 
 
 if __name__ == "__main__":

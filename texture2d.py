@@ -3,55 +3,86 @@ from binary import BinaryStream
 import os
 import sys
 from wand.image import Image
+from upkElements import UpkElements
 
-def process(in_file, out_dds = None):
-    pack = True
-    if out_dds == None:
-        pack = False
-    with open(os.path.dirname(in_file) + "/_names.txt", "r") as nf:
-        names = nf.read().split("\n")
+class Texture2D:
 
-    with open(in_file, "rb+") as tf:
-        r = BinaryStream(tf)
-        fsize = os.stat(in_file).st_size
+    def __init__(self, in_file, rrnames = None):
+        if rrnames == None:
+            with open(os.path.dirname(in_file) + "/_names.txt", "r") as nf:
+                self.names = nf.read().split("\n")
+        else:
+            self.names = rrnames
+        self.file = in_file
+        self.fileObj = open(in_file, "rb+")
+        self.datasize = os.stat(self.file).st_size
+        self.reader = BinaryStream(self.fileObj)
+        imgInfo = self.getMipMaps()
+        self.mipmaps = imgInfo[0]
+        self.pixFmt = imgInfo[1]
+        self.firstAddress = [0, 0]
 
-        r.seek(28)
-        size = []
-        soff = []
-        for a in range(4):
-            soff.append(r.offset())
-            size.append(r.readInt32())
-            r.seek(r.offset() + 24)
+    def getMipMaps(self):
+        mipmapsList = []
+        r = self.reader
+        fsize = self.datasize
+        textureElem = UpkElements(self.names, r)
+        te = textureElem.elements
+        pixFmt = te["EPixelFormat"]["type"]
+        r.seek(textureElem.endOffset+12)
+        magicNumber = r.offset()
+        self.firstAddress = [magicNumber, r.readUInt32()]
+        magicNumber = self.firstAddress[1] - magicNumber
 
-        r.seek(r.offset() + 8)
-        pixFmt = r.readInt32()
+        oneMp = True
+        someUnk = r.readUInt32()
+        if someUnk > 1:
+            oneMp = False
+        pixFmtName = pixFmt.replace("PF_", "")
+        print(pixFmtName)
+        sizeOffsets = [te["OriginalSizeX"]["valoff"], te["OriginalSizeY"]["valoff"]]
+        oSizeW = te["OriginalSizeX"]["value"]
+        oSizeH = te["OriginalSizeY"]["value"]
+        i = 0
+        currOff = r.offset()
+        while currOff <=fsize - (16 if oneMp else 24):
+            ### ONE MIPMAP: 0000 SIZEBYTES SIZEBYTES ADDRESS
+            ### MULTI MIPMAPS: SIZEX SIZEY 0000 SIZEBYTES SIZEBYTES ADDRESS
+            ### TEXTURE DATA
+            if not oneMp:
+                sizeOffsets = [r.offset(), r.offset()+4]
+                oSizeW = r.readUInt32()
+                oSizeH = r.readUInt32()
+            r.readUInt32()
+            bytesLen = r.readUInt32()
+            r.readUInt32()
+            ofst = r.readInt32()
+            mm = ofst - magicNumber - r.offset() + 4 # find correct address
+            if mm != 0:
+                currOff = currOff + 4
+                r.seek(currOff)
+                continue
+            currOff = r.offset()
+            i += 1
+            r.seek(r.offset() + bytesLen)
+            mipmapsList.append({"offset": currOff, "address": ofst, "bytes": bytesLen, "sizeX": oSizeW, "sizeY": oSizeH, "sizeOffsets": sizeOffsets})
+        return mipmapsList, pixFmtName
 
-        rb = r.readInt32()
-        while names[rb] != "None":
-            rb = r.readInt32()
-
-        r.readBytes(33)
-        bl = r.offset()
-        bytesLen = r.readInt32()
-        r.readBytes(12)
-        bd = r.offset()
-        data = r.readBytes(bytesLen - 8)
-        oSizeW = r.readInt32()
-        oSizeH = r.readInt32()
-        endData = r.readBytes(fsize - r.offset())
-        pixFmtName = names[pixFmt].replace("PF_", "")
+    def unpack(self):
+        pixFmtName = self.pixFmt
         if "RGBA" in pixFmtName:
             pixFmtName = "RGBA"
         allowedFmt = ["DXT5", "DXT1", "DXT3", "RGBA"]
         if not pixFmtName in allowedFmt:
             print(f"ERR: {pixFmtName} not supported.")
             return
-
-        if not pack:
+        r = self.reader
+        i = 0
+        for mm in self.mipmaps:
             newDDS = b'DDS |\x00\x00\x00'
             newDDS += b'\x07\x10\x00\x00'
-            newDDS += struct.pack("i", oSizeH)
-            newDDS += struct.pack("i", oSizeW)
+            newDDS += struct.pack("i", mm["sizeY"])
+            newDDS += struct.pack("i", mm["sizeX"])
             newDDS += bytes(56) # MipMaps
             newDDS += struct.pack("i", 32)
 
@@ -69,47 +100,54 @@ def process(in_file, out_dds = None):
                 newDDS += bytes(20)
                 newDDS += struct.pack("i", 1)
                 newDDS += bytes(24)
-            newDDS += data
-            with open(os.path.dirname(in_file) + "/" + os.path.basename(in_file) + ".dds", "wb") as nd:
+            r.seek(mm["offset"]+8)
+            newDDS += r.readBytes(mm["bytes"]-8)
+            with open(os.path.dirname(self.file) + "/" + os.path.basename(self.file) + "." + str(i) + ".dds", "wb") as nd:
                 nd.write(newDDS)
-        else:
-            with Image(filename=out_dds) as oi:
-                oiw = oi.width
-                oih = oi.height
-                oi.compression = pixFmtName.lower()
-                if pixFmtName == "RGBA":
-                    oi.compression = 'no'
-                print(pixFmtName)
-                oi.save(filename=out_dds)
+            i += 1
+        self.fileObj.close()
 
-            with open(out_dds, "rb") as dds:
-                dreader = BinaryStream(dds)
-                dreader.seek(12)
-                bsize = [dreader.readInt32(), dreader.readInt32()]
-                if pixFmtName == "RGBA":
-                    dreader.seek(dreader.offset() + 88)
-                else:
-                    dreader.seek(136)
-                dsize = os.stat(out_dds).st_size
-                data = dreader.readBytes(dsize - dreader.offset())
+    def pack(self, in_dds):
+        if len(self.mipmaps) > 1:
+            print("Textures with multiple mipmaps not supported")
+            return
+        with Image(filename=in_dds) as oi:
+            if self.pixFmt == "RGBA":
+                oi.compression = 'no'
+            else:
+                oi.compression = self.pixFmt.lower()
+            oi.save(filename=in_dds)
 
-            r.seek(bd)
-            r.clear()
-            r.writeBytes(data)
-            r.writeInt32(bsize[1])
-            r.writeInt32(bsize[0])
-            r.writeBytes(endData)
-            a = False
-            for i in range(len(soff)):
-                r.seek(soff[i])
-                if a:
-                    r.writeInt32(bsize[0])
-                else:
-                    r.writeInt32(bsize[1])
-                a = not a
-            r.seek(bl - 4)
-            r.writeInt32(len(data)+8)
-            r.writeInt32(len(data)+8)
+        with open(in_dds, "rb") as dds:
+            dreader = BinaryStream(dds)
+            dreader.seek(12)
+            bsize = [dreader.readInt32(), dreader.readInt32()]
+            if self.pixFmt == "RGBA":
+                dreader.seek(dreader.offset() + 88)
+            else:
+                dreader.seek(136)
+            dsize = os.stat(in_dds).st_size
+            data = dreader.readBytes(dsize - dreader.offset())
+        
+        r = self.reader
+        r.seek(self.mipmaps[0]['offset'] + self.mipmaps[0]['bytes'] + 8)
+        endData = r.readBytes(self.datasize - r.offset())
+        r.seek(self.mipmaps[0]['offset']+8)
+        r.clear()
+        r.writeBytes(data)
+        r.writeInt32(bsize[1])
+        r.writeInt32(bsize[0])
+        r.writeBytes(endData)
+
+        r.seek(self.mipmaps[0]["sizeOffsets"][0])
+        r.writeInt32(bsize[1])
+        r.seek(self.mipmaps[0]["sizeOffsets"][1])
+        r.writeInt32(bsize[0])
+
+        r.seek(self.mipmaps[0]['offset']-12)
+        r.writeInt32(len(data)+8)
+        r.writeInt32(len(data)+8)
+        self.fileObj.close()
 
 
 
@@ -117,7 +155,11 @@ if __name__ == "__main__":
     args = sys.argv[1::]
     if "-p" in args:
         idx = args.index("-p")
-        process(args[idx+1], args[idx+2])
+        tex2d = Texture2D(args[idx+1])
+        tex2d.pack(args[idx+2])
     else:
-        process(args[0])
+        tex2d = Texture2D(args[0])
+        tex2d.unpack()
+    
+    print(tex2d.mipmaps)
 

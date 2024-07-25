@@ -39,7 +39,7 @@ class Texture2D:
         if someUnk > 1:
             oneMp = False
         pixFmtName = pixFmt.replace("PF_", "")
-        print(pixFmtName)
+        #print(pixFmtName)
         sizeOffsets = [te["OriginalSizeX"]["valoff"], te["OriginalSizeY"]["valoff"]]
         oSizeW = te["OriginalSizeX"]["value"]
         oSizeH = te["OriginalSizeY"]["value"]
@@ -148,8 +148,6 @@ class Texture2D:
         r.writeInt32(len(data)+8)
         r.writeInt32(len(data)+8)
         self.fileObj.close()
-
-
 
 if __name__ == "__main__":
     args = sys.argv[1::]

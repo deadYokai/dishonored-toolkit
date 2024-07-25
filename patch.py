@@ -22,7 +22,7 @@ def patch(filepath, ph, addDir = None, silent=False):
     data = rr["data"]
     outDir = rr["dir"]
     headerSize = rr["headerSize"]
-    rrnames = rr["dnames"]
+    rrnames = rr["dNames"]
 
     dataOff = 0
     dataSize = 0

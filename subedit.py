@@ -165,14 +165,25 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                                 fileData += reader.readBytes(textVal[a+1]['m_ChoiceText'][1] - reader.offset())
                     else:
                         fileData += reader.readBytes(textVal[1])
+                        cutOffset = reader.offset()
                         
-                        eStr = pStr.encode("utf-16le")
-                        lStr = len(pStr) + 1
-                        lStr = lStr * -1
-                        eStr += b"\x00\x00"
+                        try:
+                            eStr = pStr.encode("ISO-8859-1")
+                            lStr = len(pStr) + 1
+                            eStr += b"\x00"
+                        except:
+                            eStr = pStr.encode("utf-16le")
+                            lStr = len(pStr) + 1
+                            lStr = lStr * -1
+                            eStr += b"\x00\x00"
                         
                         fileData += struct.pack("i", lStr)
                         fileData += eStr
+                        
+                        cutLen = reader.readInt32()
+                        if cutLen < 0:
+                            cutLen = cutLen * -2
+                        reader.readBytes(cutLen)
 
                         fileData += reader.readBytes(fileSize - reader.offset())
 

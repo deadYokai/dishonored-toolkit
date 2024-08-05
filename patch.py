@@ -106,11 +106,15 @@ def patch(filepath, ph, addDir = None, silent=False):
                         tex2d = Texture2D(tmpName, rrnames)
                         r = tex2d.reader
                         mm = tex2d.mipmaps
-                        r.seek(tex2d.firstAddress[0]+4)
-                        r.writeUInt32(offe + r.offset())
+                        try:
+                            r.seek(tex2d.firstAddress[0])
+                        except:
+                            print(name)
+                            raise
+                        r.writeUInt32(offe + r.offset()+4)
                         for m in mm:
-                            r.seek(m["offset"])
-                            r.writeUInt32(offe + r.offset())
+                            r.seek(m["offset"]-4)
+                            r.writeUInt32(offe + r.offset() + 4)
                         with open(tmpName, "rb") as tf:
                             writeData = tf.read()
                         os.remove(tmpName)

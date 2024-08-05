@@ -17,10 +17,10 @@ class Texture2D:
         self.fileObj = open(in_file, "rb+")
         self.datasize = os.stat(self.file).st_size
         self.reader = BinaryStream(self.fileObj)
+        self.firstAddress = [0, 0]
         imgInfo = self.getMipMaps()
         self.mipmaps = imgInfo[0]
         self.pixFmt = imgInfo[1]
-        self.firstAddress = [0, 0]
 
     def getMipMaps(self):
         mipmapsList = []
@@ -30,6 +30,9 @@ class Texture2D:
         te = textureElem.elements
         pixFmt = te["EPixelFormat"]["type"]
         r.seek(textureElem.endOffset+12)
+        p = r.offset()
+        if r.readUInt32() != 0:
+            r.seek(p)
         magicNumber = r.offset()
         self.firstAddress = [magicNumber, r.readUInt32()]
         magicNumber = self.firstAddress[1] - magicNumber
@@ -158,6 +161,7 @@ if __name__ == "__main__":
     else:
         tex2d = Texture2D(args[0])
         tex2d.unpack()
-    
+
     print(tex2d.mipmaps)
+    print(tex2d.firstAddress)    
 

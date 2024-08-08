@@ -60,7 +60,7 @@ def unpackYaml(fp, outYaml, lang = None):
                 continue
 
             if isINT:
-                textVal = text['value'][0]
+                textVal = text['value']
                 if plChoice:
                     texVal = []
                     for a in range(len(textVal)):
@@ -68,7 +68,7 @@ def unpackYaml(fp, outYaml, lang = None):
                         texVal.append(textVal[a]['m_ChoiceText'][0][0].replace('\x00', '').strip())
                     textVal = texVal
                 else:
-                    textVal = textVal.replace('\x00', '').strip()
+                    textVal = textVal[0].replace('\x00', '').strip()
 
                 od[name] = textVal
             else:
@@ -150,7 +150,6 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                             t = textVal[a]['m_ChoiceText'][0]
                             if a == 0:
                                 fileData += reader.readBytes(t[1])
-
                             eStr = pStr[a].encode("utf-16le")
                             lStr = len(pStr[a]) + 1
                             lStr = lStr * -1

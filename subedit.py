@@ -65,7 +65,7 @@ def unpackYaml(fp, outYaml, lang = None):
                     texVal = []
                     for a in range(len(textVal)):
                         textVal = text['value']
-                        texVal.append(textVal[a]['m_ChoiceText'][0].replace('\x00', '').strip())
+                        texVal.append(textVal[a]['m_ChoiceText'][0][0].replace('\x00', '').strip())
                     textVal = texVal
                 else:
                     textVal = textVal.replace('\x00', '').strip()
@@ -147,7 +147,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     pStr = yod[name]
                     if plChoice:
                         for a in range(len(textVal)):
-                            t = textVal[a]['m_ChoiceText']
+                            t = textVal[a]['m_ChoiceText'][0]
                             if a == 0:
                                 fileData += reader.readBytes(t[1])
 
@@ -157,7 +157,6 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                             eStr += b"\x00\x00"
                             fileData += struct.pack("i", lStr)
                             fileData += eStr
-                            
                             reader.seek(t[2])
                             if a == len(textVal)-1:
                                 fileData += reader.readBytes(fileSize - reader.offset())

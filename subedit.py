@@ -118,7 +118,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
     print(f"Unpacking {upkName}.upk")
     rr = unpack(fp, "DisConv", True, True)
     files = Path(f"{dir}/{upkName}").glob('DisConv_*')
-    print("Pathing Blurb files")
+    print("Patching Blurb files")
     for subFile in files:
         fileSize = os.stat(subFile).st_size
         name = os.path.basename(subFile)

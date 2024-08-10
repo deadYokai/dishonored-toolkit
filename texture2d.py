@@ -1,3 +1,4 @@
+from io import BytesIO
 import struct
 from binary import BinaryStream
 import os
@@ -14,8 +15,14 @@ class Texture2D:
         else:
             self.names = rrnames
         self.file = in_file
-        self.fileObj = open(in_file, "rb+")
-        self.datasize = os.stat(self.file).st_size
+        if isinstance(self.file, BytesIO):
+            self.fileObj = self.file
+            self.file.seek(0, os.SEEK_END)
+            self.datasize = self.file.tell()
+            self.file.seek(0)
+        else:
+            self.fileObj = open(in_file, "rb+")
+            self.datasize = os.stat(self.file).st_size
         self.reader = BinaryStream(self.fileObj)
         self.firstAddress = [0, 0]
         imgInfo = self.getMipMaps()

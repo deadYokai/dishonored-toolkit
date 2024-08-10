@@ -100,10 +100,11 @@ def patch(filepath, ph, addDir = None, silent=False):
                         print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
 
                     if name.split(".")[-1] == "Texture2D":
-                        tmpName = ".tmp.upk.data.file." + name
-                        with open(tmpName, "wb") as tf:
-                            tf.write(writeData)
-                        tex2d = Texture2D(tmpName, rrnames)
+                        # tmpName = ".tmp.upk.data.file." + name
+                        # with open(tmpName, "wb") as tf:
+                        #     tf.write(writeData)
+                        texBytes = io.BytesIO(writeData)
+                        tex2d = Texture2D(texBytes, rrnames)
                         r = tex2d.reader
                         mm = tex2d.mipmaps
                         try:
@@ -115,15 +116,19 @@ def patch(filepath, ph, addDir = None, silent=False):
                         for m in mm:
                             r.seek(m["offset"]-4)
                             r.writeUInt32(offe + r.offset() + 4)
-                        with open(tmpName, "rb") as tf:
-                            writeData = tf.read()
-                        os.remove(tmpName)
+                        r.seek(0)
+                        writeData = r.readBytes(tex2d.datasize)
+                        # with open(tmpName, "rb") as tf:
+                        #     writeData = tf.read()
+                        # os.remove(tmpName)
+
+                    newSize = size + sizeDiff
 
                     pr.seek(offe)
                     pr.writeBytes(writeData)
 
                     pr.seek(sizeOff)
-                    pr.writeInt32(size + sizeDiff)
+                    pr.writeInt32(newSize)
 
                     pr.seek(headerOff)
                     pr.writeInt32(offe)

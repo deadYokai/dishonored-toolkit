@@ -69,12 +69,17 @@ class UpkElements:
                 return {"name": "None", "type": "None"}
 
             n = self.names[i]
-        nn = self.reader.readUInt64()
-        if self.reader.offset() < self.fileSize - 8 and nn < self.namesCount:
-            nt = self.names[nn]
+
+        if self.reader.offset() < self.fileSize - 8: 
+            nn = self.reader.readUInt64()
+            if nn < self.namesCount:
+                nt = self.names[nn]
+            else:
+                nt = n
+
+            return {"name": n, "type": nt}
         else:
-            nt = n
-        return {"name": n, "type": nt}
+            return {"name": n, "type": None}
 
     def resolve(self, str):
         if str == "StructProperty":
@@ -94,7 +99,7 @@ class UpkElements:
         if str == "ByteProperty":
             return self.resolveByte()
         if str == "NameProperty":
-            return self.resolveName()
+            return self.resolveName() 
         
         return None, -1
 
@@ -114,18 +119,27 @@ class UpkElements:
         return self.reader.readFloat(), valoff
 
     def resolveArr(self):
-        self.reader.readInt64() # unknown
+        bytesCount = self.reader.readInt64() # unknown
         valoff = self.reader.offset()
         len = self.reader.readUInt32()
+
         arr = []
         for i in range(len):
-            iInt = self.reader.readInt64()
-            if (self.namesCount < iInt) or (iInt == 0):
-                self.reader.seek(self.reader.offset() - 8)
-                arr.append(self.reader.readBytes(4).hex())
-            else:
-                n = self.getName(iInt)
-                arr.append({n["name"]: self.resolve(n["type"])})
+            of = self.reader.offset()
+            if of < valoff + bytesCount:
+                iInt = self.reader.readUInt64()
+                if self.namesCount < iInt:
+                    self.reader.seek(of)
+                    arr.append(self.reader.readBytes(2).hex())
+                else:
+                    o = self.reader.offset()
+                    n = self.getName(iInt)
+                    t = self.resolve(n["type"])
+                    if t[0] != None:
+                        arr.append({n["name"]: t})
+                    else:
+                        arr.append(self.names[iInt])
+        self.reader.seek(valoff + bytesCount)
         return arr, valoff
 
     def resolveObj(self):
@@ -178,8 +192,10 @@ class UpkElements:
             po = self.reader.offset()
             if self.reader.offset() < self.fileSize - 8:
                 i = self.reader.readInt64()
-            else:
+            elif self.reader.offset() < self.fileSize - 4:
                 i = self.reader.readInt32()
+            else:
+                break
             self.endOffset = self.reader.offset()
             n = self.getName(i)
             name = n["name"]
@@ -276,18 +292,21 @@ class UpkElements:
 
 
 import traceback
+import shutil
 if __name__ == "__main__":
     args = sys.argv[1::]
     with open(args[0], "rb") as f:
         workDir = os.path.dirname(args[0])
         with open(workDir + "/_names.txt", "r") as nf:
             names = nf.read().split("\n")
+        
         try:
             eClass = UpkElements(names, BinaryStream(f))
             print(eClass.elements)
-            eClass.setParam("SizeY", "")
             eClass.endOffset
-            eClass.resolveLang(eClass.endOffset)
+            #eClass.resolveLang(eClass.endOffset)
         except Exception:
             print(args[0])
+
+#            shutil.copy(args[0], args[0].replace('_DYextracted', "FuckedUp"))
             print(traceback.format_exc())

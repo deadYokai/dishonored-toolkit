@@ -99,10 +99,8 @@ def patch(filepath, ph, addDir = None, silent=False):
                     if (not silent) and b:
                         print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
 
+                    ## Write new offsets into elements
                     if name.split(".")[-1] == "Texture2D":
-                        # tmpName = ".tmp.upk.data.file." + name
-                        # with open(tmpName, "wb") as tf:
-                        #     tf.write(writeData)
                         texBytes = io.BytesIO(writeData)
                         tex2d = Texture2D(texBytes, rrnames)
                         r = tex2d.reader
@@ -118,10 +116,11 @@ def patch(filepath, ph, addDir = None, silent=False):
                             r.writeUInt32(offe + r.offset() + 4)
                         r.seek(0)
                         writeData = r.readBytes(tex2d.datasize)
-                        # with open(tmpName, "rb") as tf:
-                        #     writeData = tf.read()
-                        # os.remove(tmpName)
+                    if name.split(".")[-1] == "TextureCube":
+                        writeData = writeData[:len(writeData)-4]
+                        writeData += struct.pack("I", offe + 4 + len(writeData))
 
+                    ## Write data to header
                     newSize = size + sizeDiff
 
                     pr.seek(offe)

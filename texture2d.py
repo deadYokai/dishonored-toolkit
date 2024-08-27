@@ -63,6 +63,10 @@ class Texture2D:
                 sizeOffsets = [r.offset(), r.offset()+4]
                 oSizeW = r.readUInt32()
                 oSizeH = r.readUInt32()
+                if oSizeW == 0:
+                    r.seek(r.offset()-8)
+                    oSizeW = 0
+                    oSizeH = 0
             r.readUInt32()
             bytesLen = r.readUInt32()
             r.readUInt32()

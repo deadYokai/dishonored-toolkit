@@ -63,7 +63,7 @@ class UpkElements:
             else:
                 i = self.reader.readInt32()
 
-            if i > len(self.names):
+            if i > len(self.names) or i < 0:
                 return {"name": "None", "type": "None"}
             elif self.names[i] == "None" or i == 0:
                 return {"name": "None", "type": "None"}
@@ -188,6 +188,9 @@ class UpkElements:
 
     def genNames(self):
         self.reader.readBytes(4)
+        sos = self.reader.offset()
+        if self.reader.readInt32() != 0:
+            self.reader.seek(sos)
         while self.reader.offset() < self.fileSize:
             po = self.reader.offset()
             if self.reader.offset() < self.fileSize - 8:
@@ -302,8 +305,9 @@ if __name__ == "__main__":
         
         try:
             eClass = UpkElements(names, BinaryStream(f))
-            print(eClass.elements)
-            eClass.endOffset
+            if "--debug" in args:
+                print(eClass.elements)
+                print(eClass.endOffset)
             #eClass.resolveLang(eClass.endOffset)
         except Exception:
             print(args[0])

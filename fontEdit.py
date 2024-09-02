@@ -1,24 +1,27 @@
 import os
 from os.path import isfile
-import re
 import struct
 import sys
 import json
-
 import glob
+
 from wand.image import Image, Color
 from wand.drawing import Drawing
 from wand.color import Color
 from binary import BinaryStream
-import texture2d
+from texture2d import Texture2D
+
 def create(inFile, fontFile, inCharset = ""):
     fn = os.path.basename(inFile)
     fd = os.path.dirname(inFile)
     dir = f"{fd}/_{fn}"
 
-    size = [1024, 512]
+    size = [512, 512] # default size
+    resolutions = [512, 1024, 2048, 4056]
 
-    fontInfoFile = dir + "/fontInfo.json"   
+    last_x = False
+
+    fontInfoFile = dir + "/fontInfo.json" 
     if not os.path.isfile(fontInfoFile):
         extract(inFile, dir, True)
 
@@ -26,6 +29,11 @@ def create(inFile, fontFile, inCharset = ""):
         fontInfo = json.load(infoFile)
     
     fCharset = fontInfo["Charset"]
+
+    if os.path.isfile(inCharset):
+        with open(inCharset, "r", encoding="utf-16le") as cf:
+            inCharset = cf.readline() 
+
     if inCharset != "":
         fCharset = inCharset + "\u0000"
 
@@ -33,46 +41,70 @@ def create(inFile, fontFile, inCharset = ""):
     newFontDds = Image(width=size[0], height=size[1])
     newFontDds.format = "dds"
     newFontDds.compression = "dxt5"
-    x = 0 
+    x0 = 0
+    x = x0
     sh = int(fontInfo["fontHeight"] + 8)
     y = sh
     s = int(fontInfo["fontHeight"] * 1.6)
-    charTbl = []
+    charTbl = []    
 
     for i in range(0, 256): # range to FF00
         charTbl.append({"CharHex": chr(i).encode("utf-16le").hex(), "ID": i, "CharData": {"StartU": 0, "StartV": 0, "USize": 0, "VSize": 0, "TextureIndex": 0, "VerticalOffset": 0}})
+    
+    charSizes = []
+    with Drawing() as draw:
+        draw.font = fontFile
+        draw.font_size = s
+        for c in charList:
+            fm = draw.get_font_metrics(text=c, image=newFontDds)
+            w = int(fm.text_width) + 1
+            h = int(fm.text_height)
+            charSizes.append({"w": w, "h": h, "c": c})
+
+    ### TODO: CALCULATE TEXTURE SIZE
 
     with Drawing() as draw:
         draw.font = fontFile
         draw.font_size = s
-        draw.fill_color = Color("white")
-        for c in charList:
-            fm = draw.get_font_metrics(text=c, image=newFontDds)
-            w = int(fm.text_width)
-            h = int(s)
-
-            if (x+w) > size[0]:
-                x = 0
+        draw.fill_color = Color("black")
+        for ch in charSizes:
+            w = ch["w"]
+            h = ch["h"]
+            c = ch["c"]
+            if (x+w) > newFontDds.width:
+                x = x0
                 y += h
+
+            draw.text(x, y, c)
+            draw.text_alignment = "left"
 
             if ord(c) <=len(charTbl):
                 charTbl[ord(c)] = {"CharHex": c.encode("utf-16le").hex(), "ID": ord(c), "CharData": {"StartU": x, "StartV": y-sh, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}}
             else:
                 charTbl.append({"CharHex": c.encode("utf-16le").hex(), "ID": len(charTbl), "CharData": {"StartU": x, "StartV": y-sh, "USize": w, "VSize": h, "TextureIndex": 0, "VerticalOffset": 0}})
-            draw.text(x, y, c)
+
             x = x + w
 
-    
         draw(newFontDds)
 
-    newFontDds.save(filename=f"{dir}/{fontInfo["ddsFile"]}")
-    texture2dFile = dir + "/../" + fontInfo["ddsFile"].replace(".dds", "")
+    newFontDds.save(filename=f"{fd}/{fontInfo["ddsFile"]}")
+    texture2dFile = fd + os.sep + fontInfo["ddsFile"].replace(".0.dds", "")
+
+    patched_dir = fd.replace("_DYextracted", "_DYpatched")
+
+    os.makedirs(patched_dir, exist_ok=True)
 
     with open(texture2dFile, "rb") as t2:
-        with open(texture2dFile + "_patched", "wb") as tt:
+        with open(texture2dFile.replace("_DYextracted", "_DYpatched")
+ + "_patched", "wb") as tt:
             tt.write(t2.read())
 
-    texture2d.process(texture2dFile + "_patched", f"{dir}/{fontInfo["ddsFile"]}")
+    with open(fd + "/_names.txt", "r") as nf:
+        rrnames = nf.read().split("\n")
+
+    tp = Texture2D(texture2dFile.replace("_DYextracted", "_DYpatched")
++ "_patched", rrnames)
+    tp.pack(f"{fd}/{fontInfo["ddsFile"]}")
 
     with open(dir + "/newCharTable.json", "w") as ncht:
         json.dump(charTbl, ncht, indent=4, ensure_ascii=False)
@@ -133,7 +165,8 @@ def create(inFile, fontFile, inCharset = ""):
 
     newFontFile += charIndexBytes
 
-    with open(inFile + "_patched", "wb") as newFont:
+    with open(inFile.replace("_DYextracted", "_DYpatched")
+ + "_patched", "wb") as newFont:
         newFont.write(newFontFile)
 
 
@@ -201,7 +234,8 @@ def extract(fileToExtract, out, jsonOnly = False):
         ddsGlob = glob.glob(f"{out}/../{name}*.dds")
         if ddsGlob == []:
             tex = glob.glob(f"{out}/../{name}*.Texture2D")[0]
-            texture2d.process(tex)
+            t = Texture2D(tex)
+            t.unpack()
             ddsGlob = glob.glob(f"{out}/../{name}*.dds")
         ddsFile = Image(filename=ddsGlob[0])
         fontR["fontInfo"]["ddsFile"] = os.path.basename(ddsGlob[0])

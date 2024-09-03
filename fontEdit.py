@@ -30,8 +30,8 @@ def create(inFile, fontFile, inCharset = ""):
     fCharset = fontInfo["Charset"]
 
     if os.path.isfile(inCharset):
-        with open(inCharset, "r", encoding="utf-16le") as cf:
-            inCharset = cf.readline() 
+        with open(inCharset, "r") as cf:
+            inCharset = cf.read().replace('\n', '') 
 
     if inCharset != "":
         fCharset = inCharset + "\u0000"

@@ -81,7 +81,7 @@ def create(inFile, fontFile, inCharset = ""):
     with Drawing() as draw:
         draw.font = fontFile
         draw.font_size = s
-        draw.fill_color = Color("black")
+        draw.fill_color = Color("white")
         for ch in charSizes:
             w = ch["w"]
             h = ch["h"]

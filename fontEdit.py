@@ -16,9 +16,8 @@ def create(inFile, fontFile, inCharset = ""):
     fd = os.path.dirname(inFile)
     dir = f"{fd}/_{fn}"
 
-    size = [512, 512] # default size
     resolutions = [512, 1024, 2048, 4056]
-
+    size = [resolutions[0], resolutions[0]] # default size
     last_x = False
 
     fontInfoFile = dir + "/fontInfo.json" 
@@ -61,7 +60,23 @@ def create(inFile, fontFile, inCharset = ""):
             h = int(fm.text_height)
             charSizes.append({"w": w, "h": h, "c": c})
 
-    ### TODO: CALCULATE TEXTURE SIZE
+    maxWidth = max([d['w'] for d in charSizes])
+    maxHeight = max([d['h'] for d in charSizes])
+
+    lastRes = [resolutions[0], resolutions[0]]
+    d = (lastRes[0]*lastRes[1])/(len(charSizes) * maxWidth * maxHeight)
+    r = 0
+    while d < 1:       
+        if not last_x:
+            lastRes[1] = resolutions[r]
+            last_x = True
+            r = r + 1
+        else:
+            lastRes[0] = resolutions[r]
+            last_x = False
+        d = (lastRes[0]*lastRes[1])/(len(charSizes) * maxWidth * maxHeight) 
+
+    newFontDds.resize(lastRes[0], lastRes[1])
 
     with Drawing() as draw:
         draw.font = fontFile

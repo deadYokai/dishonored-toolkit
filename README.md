@@ -95,15 +95,17 @@ Example: `python3 patch.py ../L_Tower_Script.upk`
 
 **IMPORTANT**: font texture (Texture2D) must be in same directory as a .Font
 
+See a [wiki page](https://github.com/deadYokai/dishonored-toolkit/wiki/Font-Editing-(Font))
+
 - Extract
     ```bash
     python3 fontEdit -e <path to .Font>
     ```
 - Pack
     ```bash
-    python3 fontEdit -p <path to .Font> <path to .ttf/.otf> [charset]
+    python3 fontEdit -p <path to .Font> <path to .ttf/.otf> [charset or file]
     ```
-    `charset` - optional, if not specified uses charset from .Font
+    `charset` - optional, if not specified it will use a charset from `.Font` file
 
 #### Subtitles
 

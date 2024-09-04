@@ -1,9 +1,9 @@
 import os
-from os.path import isfile
 import struct
 import sys
 import json
 import glob
+import chardet
 
 from wand.image import Image, Color
 from wand.drawing import Drawing
@@ -24,14 +24,27 @@ def create(inFile, fontFile, inCharset = ""):
     if not os.path.isfile(fontInfoFile):
         extract(inFile, dir, True)
 
-    with open(fontInfoFile, "r") as infoFile:
-        fontInfo = json.load(infoFile)
+    with open(fontInfoFile, "rb") as infoFile:
+        d = infoFile.read()
+        enc = chardet.detect(d)['encoding']
+        try:
+            jsData = d.decode(enc)
+        except:
+            print("Unknown fontInfo file encoding, try a UTF-16LE")
+            exit()
+        fontInfo = json.loads(jsData)
     
     fCharset = fontInfo["Charset"]
 
     if os.path.isfile(inCharset):
-        with open(inCharset, "r") as cf:
-            inCharset = cf.read().replace('\n', '') 
+        with open(inCharset, "rb") as cf:
+            d = cf.read()
+            enc = chardet.detect(d)['encoding']
+            try:
+                inCharset = d.decode(enc)
+            except:
+                print("Unknown char file encoding, try a UTF-16LE")
+                exit()
 
     if inCharset != "":
         fCharset = inCharset + "\u0000"

@@ -223,7 +223,7 @@ def packYaml(fp, inYaml, inp_lang, rep_lang = None):
                     modded.write(fileData)
 
     print(f"Packing {upkName}.upk")
-    patch(fp, False, addDir=upkName, silent=True)
+    patch(fp, False, addDir=upkName, silent=True, end=True)
 
     if (rep_lang is not None) and (rep_lang != inp_lang):
         with open(str(fp) + "_patched", "rb+") as pf:

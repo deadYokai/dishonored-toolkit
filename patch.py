@@ -9,7 +9,7 @@ import struct
 from upkreader import readerGet
 from texture2d import Texture2D
 
-def patch(filepath, ph, addDir = None, silent=False):
+def patch(filepath, ph, addDir = None, silent=False, end=False):
     
     sp = False
     if addDir is not None:
@@ -56,6 +56,7 @@ def patch(filepath, ph, addDir = None, silent=False):
 
             offsetDiff = 0
             sizeDiff = 0
+            prevSize = 0
             with open(f"{outDir}/_objects.txt", "r") as listfile:
                 for line in listfile:
                     odata = line.replace(' ', '').replace('\n','').split(";")
@@ -91,43 +92,55 @@ def patch(filepath, ph, addDir = None, silent=False):
 
                     oDiff = offsetDiff
 
-                    if b:
+                    if (not end) and b:
                         oDiff = offsetDiff - sizeDiff
 
                     offe = offset + oDiff
+                    if end and b:
+                        q = reader.offset()
+                        reader.seek(0, os.SEEK_END)
+                        offe = reader.offset() + prevSize
+                        reader.seek(q)
+                        offsetDiff = 0
+                        oDiff = offsetDiff
 
                     if (not silent) and b:
                         print(f"- {name}\n  original size: {size}\n  patched size: {psize}\n  size diff: {sizeDiff}\n  offset: {offe}")
 
                     ## Write new offsets into elements
-                    if name.split(".")[-1] == "Texture2D":
-                        texBytes = io.BytesIO(writeData)
-                        tex2d = Texture2D(texBytes, rrnames)
-                        r = tex2d.reader
-                        mm = tex2d.mipmaps
-                        try:
-                            r.seek(tex2d.firstAddress[0])
-                        except:
-                            print(name)
-                            raise
-                        r.writeUInt32(offe + r.offset()+4)
-                        for m in mm:
-                            r.seek(m["offset"]-4)
-                            r.writeUInt32(offe + r.offset() + 4)
-                        r.seek(0)
-                        writeData = r.readBytes(tex2d.datasize)
-                    if name.split(".")[-1] == "TextureCube":
-                        writeData = writeData[:len(writeData)-4]
-                        writeData += struct.pack("I", offe + 4 + len(writeData))
+                    if not end:
+                        if name.split(".")[-1] == "Texture2D":
+                            texBytes = io.BytesIO(writeData)
+                            tex2d = Texture2D(texBytes, rrnames)
+                            r = tex2d.reader
+                            mm = tex2d.mipmaps
+                            try:
+                                r.seek(tex2d.firstAddress[0])
+                            except:
+                                print(name)
+                                raise
+                            r.writeUInt32(offe + r.offset()+4)
+                            for m in mm:
+                                r.seek(m["offset"]-4)
+                                r.writeUInt32(offe + r.offset() + 4)
+                            r.seek(0)
+                            writeData = r.readBytes(tex2d.datasize)
+                        if name.split(".")[-1] == "TextureCube":
+                            writeData = writeData[:len(writeData)-4]
+                            writeData += struct.pack("I", offe + 4 + len(writeData))
 
                     ## Write data to header
                     newSize = size + sizeDiff
-
+                    if b:
+                        newSize = psize
+                    
                     pr.seek(offe)
                     pr.writeBytes(writeData)
 
                     pr.seek(sizeOff)
                     pr.writeInt32(newSize)
+                    if end and b:
+                        prevSize = newSize + prevSize
 
                     pr.seek(headerOff)
                     pr.writeInt32(offe)
@@ -168,11 +181,12 @@ if __name__ == "__main__":
     parser.add_argument("filename", help = "File to patch (saves as <filename>_patched in folder with file)")
     parser.add_argument("-p", "--patch-header", default=False, help = "Insert a header file from _DYpatched", action = argparse.BooleanOptionalAction)
     parser.add_argument("-s", "--split", default=False, help = "Get patched files from _DYpatched/<upk name>", action = argparse.BooleanOptionalAction)
+    parser.add_argument("-e", "--end", default=False, help="Put patched files to end of upk", action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     ad = None
     if args.split:
         ad = '.'.join(os.path.basename(args.filename).split(".")[::-1][-1::])
-    patch(Path(args.filename), args.patch_header, ad)
+    patch(Path(args.filename), args.patch_header, ad, args.end)
 
 
 
